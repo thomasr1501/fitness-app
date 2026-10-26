@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fitness & Ernährungs-Tracker</title>
+    <title>Fitness Tracker v3</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -30,6 +30,14 @@
         .app-container {
             width: 100%;
             max-width: 500px;
+        }
+
+        /* Versions-Anzeige für Cache-Check */
+        .version-badge {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
         }
 
         /* Datumsauswahl */
@@ -220,7 +228,7 @@
             opacity: 1;
         }
 
-        /* Archiv Ordner System (Akkordeon) */
+        /* Archiv Ordner System */
         details {
             background-color: var(--surface-color);
             border-radius: var(--border-radius);
@@ -266,6 +274,9 @@
 </head>
 <body>
     <div class="app-container">
+        
+        <div class="version-badge">Version 3.0</div>
+
         <!-- Globales Datum -->
         <div class="global-date-container">
             <label for="global-date">📅 Datum:</label>
@@ -376,6 +387,16 @@
             </div>
         </div>
     </div>
+
+    <!-- FEHLER-DIAGNOSE SCRIPT -->
+    <script>
+        window.addEventListener("error", function(e) {
+            alert("JS-Fehler in Zeile " + e.lineno + ": " + e.message);
+        });
+        window.addEventListener("unhandledrejection", function(e) {
+            alert("Firebase-Fehler: " + (e.reason ? e.reason.message : "Unbekannter Cloud-Fehler"));
+        });
+    </script>
 
     <!-- Firebase SDK & Logik -->
     <script type="module">
@@ -494,7 +515,7 @@
                             <button class="icon-btn btn-delete" data-id="${id}" data-col="workouts">🗑️</button>
                         </div>
                         <div class="history-item-title">🏃 ${data.type}</div>
-                        <div class="history-item-details">${data.distance} km \vert{} Pace:${data.pace} min/km</div>
+                        <div class="history-item-details">${data.distance} km | Pace: ${data.pace} min/km</div>
                     </div>`;
                 } else if (data.category === "strength") {
                     const gymText = data.gym ? `📍 ${data.gym} | ` : "";
@@ -560,4 +581,69 @@
                 
                 grouped[date].items.forEach(data => {
                     if (data.category === "cardio") {
-                        html += `<div class="history-item-details">🏃 ${data.type}: ${data.distance}km (${data.pace
+                        html += `<div class="history-item-details">🏃 ${data.type}: ${data.distance}km (${data.pace} min/km)</div>`;
+                    } else if (data.category === "strength") {
+                        html += `<div class="history-item-details">💪 ${data.exercise}: ${data.sets}x${data.reps} @ ${data.weight}kg</div>`;
+                    }
+                });
+
+                html += `</div></details>`;
+            });
+
+            archiveList.innerHTML = html || "Keine Historie vorhanden.";
+        }
+
+        // Event-Delegation für Edit und Delete
+        document.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('btn-delete')) {
+                const id = e.target.dataset.id;
+                const col = e.target.dataset.col;
+                
+                if (confirm("Eintrag wirklich löschen?")) {
+                    await deleteDoc(doc(db, col, id));
+                    loadDayData(); 
+                    if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
+                }
+            }
+
+            if (e.target.classList.contains('btn-edit')) {
+                const id = e.target.dataset.id;
+                const col = e.target.dataset.col;
+                const docRef = doc(db, col, id);
+
+                if (col === "nutrition") {
+                    const oldMeal = e.target.dataset.meal;
+                    const newMeal = prompt("Mahlzeit bearbeiten:", oldMeal);
+                    if (newMeal !== null && newMeal !== "") {
+                        await updateDoc(docRef, { meal: newMeal });
+                        loadDayData();
+                    }
+                } else if (col === "workouts") {
+                    const cat = e.target.dataset.cat;
+                    if (cat === "cardio") {
+                        const newD = prompt("Neue Distanz (km):", e.target.dataset.dist);
+                        const newP = prompt("Neue Pace (min/km):", e.target.dataset.pace);
+                        if (newD && newP) {
+                            await updateDoc(docRef, { distance: newD, pace: newP });
+                            loadDayData();
+                            if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
+                        }
+                    } else if (cat === "strength") {
+                        const newW = prompt("Neues Gewicht (kg):", e.target.dataset.weight);
+                        const newR = prompt("Neue Wiederholungen:", e.target.dataset.reps);
+                        const newS = prompt("Neue Sätze:", e.target.dataset.sets);
+                        if (newW && newR && newS) {
+                            await updateDoc(docRef, { weight: newW, reps: newR, sets: newS });
+                            loadDayData();
+                            if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
+                        }
+                    }
+                }
+            }
+        });
+
+        // Init beim Start
+        loadDayData();
+    </script>
+</body>
+</html>
