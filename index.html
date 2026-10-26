@@ -292,6 +292,9 @@
             overflow-y: auto;
             display: none;
             margin-top: 0.25rem;
+            position: absolute;
+            width: 100%;
+            z-index: 10;
         }
         .search-result-item {
             padding: 0.5rem;
@@ -310,12 +313,13 @@
             margin-bottom: 1rem;
             border-left: 4px solid var(--warning-color);
             font-size: 0.95rem;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 5.2 - Fix & Stabil</div>
+        <div class="version-badge">Version 5.3 - Makro-Übersicht & Frischkäse</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -436,6 +440,9 @@
                 </div>
                 <input type="hidden" id="selected-food-name">
                 <input type="hidden" id="selected-food-kcal">
+                <input type="hidden" id="selected-food-protein">
+                <input type="hidden" id="selected-food-carbs">
+                <input type="hidden" id="selected-food-fat">
                 <div id="selected-food-display" style="font-size: 0.9rem; color: var(--primary-color); margin-bottom: 0.75rem;">Ausgewählt: Keines</div>
                 <button class="btn" id="btn-add-food">Zur Ernährung hinzufügen</button>
             </div>
@@ -444,7 +451,7 @@
                 <h2>Schnell-Log (One-Click)</h2>
                 <div class="quick-logs">
                     <button class="btn btn-secondary btn-text-left" id="btn-quick-breakfast">
-                        + Frühstück: 2 Eier, Pumpernickel (~350 kcal)
+                        + Frühstück: 2 Eier, Pumpernickel, 100g körniger Frischkäse (~450 kcal)
                     </button>
                     <button class="btn btn-secondary btn-text-left" id="btn-quick-lunch">
                         + Mittag: Quarkcreme, Müsli, Nüsse (~550 kcal)
@@ -544,6 +551,7 @@
 
         document.getElementById('archive-gym-filter').addEventListener('change', () => loadArchiveData());
 
+        // --- OpenFoodFacts API Suche mit Makros ---
         let searchTimeout;
         const foodSearchInput = document.getElementById('food-search');
         const resultsBox = document.getElementById('search-results-box');
@@ -564,9 +572,14 @@
                     if (data.products && data.products.length > 0) {
                         resultsBox.innerHTML = data.products.slice(0, 5).map(p => {
                             const name = p.product_name || "Unbekanntes Produkt";
-                            const kcal100g = p.nutriments ? (p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0) : 0;
-                            return `<div class="search-result-item" data-name="${name}" data-kcal="${kcal100g}">
-                                <b>${name}</b> (${kcal100g} kcal / 100g)
+                            const nut = p.nutriments || {};
+                            const kcal100g = nut['energy-kcal_100g'] || nut['energy-kcal'] || 0;
+                            const protein100g = nut['proteins_100g'] || 0;
+                            const carbs100g = nut['carbohydrates_100g'] || 0;
+                            const fat100g = nut['fat_100g'] || 0;
+
+                            return `<div class="search-result-item" data-name="${name}" data-kcal="${kcal100g}" data-protein="${protein100g}" data-carbs="${carbs100g}" data-fat="${fat100g}">
+                                <b>${name}</b> (${kcal100g} kcal | E: ${protein100g}g | K: ${carbs100g}g | F: ${fat100g}g / 100g)
                             </div>`;
                         }).join('');
                         resultsBox.style.display = 'block';
@@ -586,7 +599,11 @@
 
             document.getElementById('selected-food-name').value = item.dataset.name;
             document.getElementById('selected-food-kcal').value = item.dataset.kcal;
-            document.getElementById('selected-food-display').innerText = `Ausgewählt: ${item.dataset.name} (${item.dataset.kcal} kcal pro 100g)`;
+            document.getElementById('selected-food-protein').value = item.dataset.protein;
+            document.getElementById('selected-food-carbs').value = item.dataset.carbs;
+            document.getElementById('selected-food-fat').value = item.dataset.fat;
+
+            document.getElementById('selected-food-display').innerText = `Ausgewählt: ${item.dataset.name} (${item.dataset.kcal} kcal/100g)`;
             foodSearchInput.value = item.dataset.name;
             resultsBox.style.display = 'none';
         });
@@ -594,18 +611,28 @@
         document.getElementById('btn-add-food').addEventListener('click', async () => {
             const name = document.getElementById('selected-food-name').value;
             const kcal100g = Number(document.getElementById('selected-food-kcal').value);
+            const protein100g = Number(document.getElementById('selected-food-protein').value);
+            const carbs100g = Number(document.getElementById('selected-food-carbs').value);
+            const fat100g = Number(document.getElementById('selected-food-fat').value);
             const amount = Number(document.getElementById('food-amount').value);
 
             if (!name || !kcal100g) return alert("Bitte wähle ein Produkt aus der API-Suche aus.");
             if (!amount || amount <= 0) return alert("Bitte eine gültige Menge eingeben.");
 
-            const totalCalories = Math.round((kcal100g / 100) * amount);
+            const factor = amount / 100;
+            const totalCalories = Math.round(kcal100g * factor);
+            const totalProtein = Math.round((protein100g * factor) * 10) / 10;
+            const totalCarbs = Math.round((carbs100g * factor) * 10) / 10;
+            const totalFat = Math.round((fat100g * factor) * 10) / 10;
 
             try {
                 await addDoc(collection(db, "nutrition"), {
                     date: dateInput.value,
                     meal: `${name} (${amount}g)`,
                     calories: totalCalories,
+                    protein: totalProtein,
+                    carbs: totalCarbs,
+                    fat: totalFat,
                     timestamp: new Date()
                 });
                 document.getElementById('food-search').value = '';
@@ -616,20 +643,24 @@
             } catch (e) { console.error("Fehler:", e); }
         });
 
-        const saveNutrition = async (mealDetails, calories) => {
+        const saveNutrition = async (mealDetails, calories, protein, carbs, fat) => {
             try {
                 await addDoc(collection(db, "nutrition"), {
                     date: dateInput.value,
                     meal: mealDetails,
                     calories: calories,
+                    protein: protein,
+                    carbs: carbs,
+                    fat: fat,
                     timestamp: new Date()
                 });
                 loadDayData();
             } catch (e) { console.error("Fehler:", e); }
         };
 
-        document.getElementById('btn-quick-breakfast').addEventListener('click', () => saveNutrition("Frühstück: 2 Eier, Pumpernickel", 350));
-        document.getElementById('btn-quick-lunch').addEventListener('click', () => saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse", 550));
+        // Aktualisiertes Frühstück (inkl. körniger Frischkäse) & Mittagessen
+        document.getElementById('btn-quick-breakfast').addEventListener('click', () => saveNutrition("Frühstück: 2 Eier, Pumpernickel, 100g körniger Frischkäse", 450, 32, 28, 20));
+        document.getElementById('btn-quick-lunch').addEventListener('click', () => saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse", 550, 45, 50, 18));
 
         document.getElementById('btn-calc-tdee').addEventListener('click', () => {
             const weight = Number(document.getElementById('calc-weight').value);
@@ -775,12 +806,22 @@
             const nutritionSnap = await getDocs(qNutrition);
             let nutritionHtml = '';
             let totalCals = 0;
+            let totalProtein = 0;
+            let totalCarbs = 0;
+            let totalFat = 0;
             
             nutritionSnap.forEach((docSnap) => {
                 const data = docSnap.data();
                 const id = docSnap.id;
                 const cals = data.calories || 0;
+                const p = data.protein || 0;
+                const c = data.carbs || 0;
+                const f = data.fat || 0;
+
                 totalCals += cals;
+                totalProtein += p;
+                totalCarbs += c;
+                totalFat += f;
 
                 nutritionHtml += `<div class="history-item">
                     <div class="action-btns">
@@ -788,7 +829,7 @@
                         <button class="icon-btn btn-delete" data-id="${id}" data-col="nutrition">🗑️</button>
                     </div>
                     <div class="history-item-title">🍽️ ${data.meal}</div>
-                    <div class="history-item-details">🔥 ${cals} kcal</div>
+                    <div class="history-item-details">🔥 ${cals} kcal | E: ${p}g | K: ${c}g | F: ${f}g</div>
                 </div>`;
             });
             nutritionList.innerHTML = nutritionHtml || '<div class="history-item-details">Keine Mahlzeiten für dieses Datum.</div>';
@@ -808,7 +849,10 @@
                 colorStyle = "color: var(--danger-color);";
             }
 
-            summaryBox.innerHTML = `Aufgenommen: <b>${totalCals} kcal</b> | Zielbedarf: <b>${currentTDEE} kcal</b><br><span style="${colorStyle}">${diffText}</span>`;
+            summaryBox.innerHTML = `Aufgenommen: <b>${totalCals} kcal</b> | Zielbedarf: <b>${currentTDEE} kcal</b><br>` +
+                                   `<span style="${colorStyle}">${diffText}</span><br>` +
+                                   `<hr style="border:0; border-top:1px solid var(--border-color); margin:0.5rem 0;">` +
+                                   `<b>Makros:</b> Eiweiß: <b>${Math.round(totalProtein*10)/10}g</b> | Kohlenhydrate: <b>${Math.round(totalCarbs*10)/10}g</b> | Fett: <b>${Math.round(totalFat*10)/10}g</b>`;
         }
 
         async function loadArchiveData() {
@@ -903,7 +947,7 @@
                                     }
 
                                     if (improved && !worsened) {
-                                        comparisonIcon = ` <span style="color:var(--success-color); font-weight:bold;" title="Verbessert zum Vormonat/letzten Mal">▲</span>`;
+                                        comparisonIcon = ` <span style="color:var(--success-color); font-weight:bold;" title="Verbessert zum letzten Mal">▲</span>`;
                                     } else if (worsened && !improved) {
                                         comparisonIcon = ` <span style="color:var(--danger-color); font-weight:bold;" title="Leistungsabfall zum letzten Mal">▼</span>`;
                                     }
@@ -920,16 +964,24 @@
                 if (dayData.nutrition.length > 0) {
                     html += `<br><b>Ernährung:</b>`;
                     let dayCals = 0;
+                    let dayP = 0;
+                    let dayC = 0;
+                    let dayF = 0;
+
                     dayData.nutrition.forEach(data => {
                         dayCals += (data.calories || 0);
-                        html += `<div class="history-item-details">🍽️ ${data.meal} (${data.calories || 0} kcal)</div>`;
+                        dayP += (data.protein || 0);
+                        dayC += (data.carbs || 0);
+                        dayF += (data.fat || 0);
+                        html += `<div class="history-item-details">🍽️ ${data.meal} (${data.calories || 0} kcal | E:${data.protein || 0}g)</div>`;
                     });
 
                     const diff = dayCals - currentTDEE;
                     let diffBadge = diff <= 0 ? `<span style="color:var(--success-color);">Defizit (${Math.abs(diff)} kcal)</span>` : `<span style="color:var(--danger-color);">Überschuss (+${diff} kcal)</span>`;
 
                     html += `<div class="history-item-details" style="margin-top:0.25rem; border-top: 1px solid var(--border-color); padding-top:0.25rem;">
-                        Gesamt: <b>${dayCals} kcal</b> | ${diffBadge}
+                        Gesamt: <b>${dayCals} kcal</b> | ${diffBadge}<br>
+                        Makros: E: <b>${Math.round(dayP*10)/10}g</b> | K: <b>${Math.round(dayC*10)/10}g</b> | F: <b>${Math.round(dayF*10)/10}g</b>
                     </div>`;
                 }
 
