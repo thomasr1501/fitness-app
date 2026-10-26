@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fitness Tracker v3</title>
+    <title>Fitness & Ernährungs-Tracker</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -32,7 +32,6 @@
             max-width: 500px;
         }
 
-        /* Versions-Anzeige für Cache-Check */
         .version-badge {
             text-align: center;
             color: var(--text-secondary);
@@ -40,7 +39,6 @@
             margin-bottom: 1rem;
         }
 
-        /* Datumsauswahl */
         .global-date-container {
             margin-bottom: 1.5rem;
             display: flex;
@@ -63,7 +61,6 @@
             margin: 0;
         }
 
-        /* Tabs */
         .tabs {
             display: flex;
             gap: 0.5rem;
@@ -168,16 +165,20 @@
             background-color: var(--input-bg);
             color: var(--text-primary);
             border: 1px solid var(--border-color);
-            text-align: left;
-            font-size: 0.9rem;
-            font-weight: normal;
+            text-align: center;
+            font-size: 0.95rem;
+            font-weight: bold;
         }
 
         .btn-secondary:active {
             background-color: #3d3d3d;
         }
+        
+        .btn-text-left {
+            text-align: left;
+            font-weight: normal;
+        }
 
-        /* Listen & Historie */
         .history-list {
             display: flex;
             flex-direction: column;
@@ -206,7 +207,6 @@
             line-height: 1.4;
         }
 
-        /* Edit & Delete Buttons */
         .action-btns {
             position: absolute;
             top: 0.85rem;
@@ -228,7 +228,6 @@
             opacity: 1;
         }
 
-        /* Archiv Ordner System */
         details {
             background-color: var(--surface-color);
             border-radius: var(--border-radius);
@@ -270,12 +269,23 @@
             flex-direction: column;
             gap: 0.5rem;
         }
+
+        #temp-sets-container ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        #temp-sets-container li {
+            background: var(--surface-color);
+            padding: 0.5rem;
+            margin-bottom: 0.25rem;
+            border-radius: 4px;
+            border-left: 2px solid var(--text-secondary);
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
-        
-        <div class="version-badge">Version 3.0</div>
+        <div class="version-badge">Version 4.0 - Sets Update</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -313,31 +323,54 @@
                 <button class="btn" id="btn-save-cardio">Cardio speichern</button>
             </div>
 
+            <!-- NEUES WORKOUT MODUL -->
             <div class="card">
-                <h2>Ganzkörper-Workout</h2>
+                <h2>Workout</h2>
+                
+                <!-- Session Kopf (bleibt nach Speichern erhalten) -->
                 <div class="form-group">
                     <label for="strength-gym">Fitnessstudio (Optional)</label>
                     <input type="text" id="strength-gym" placeholder="z.B. CleverFit">
                 </div>
+                
                 <div class="form-group">
                     <label for="strength-exercise">Übung</label>
-                    <input type="text" id="strength-exercise" placeholder="z.B. Bankdrücken">
+                    <select id="strength-exercise">
+                        <option value="Rudern am Kabelzug">Rudern am Kabelzug</option>
+                        <option value="Chin-Assists">Chin-Assists</option>
+                        <option value="Hyperextensions">Hyperextensions</option>
+                        <option value="Seitheben">Seitheben</option>
+                        <option value="Bizeps-Curls">Bizeps-Curls</option>
+                        <option value="Trizeps-Curls">Trizeps-Curls</option>
+                        <option value="Kabel-Brustfliegende (oben)">Kabel-Brustfliegende (oben)</option>
+                        <option value="Kabel-Brustfliegende (unten)">Kabel-Brustfliegende (unten)</option>
+                        <option value="Sit-ups">Sit-ups</option>
+                        <option value="custom">Benutzerdefiniert...</option>
+                    </select>
+                    <input type="text" id="strength-exercise-custom" placeholder="Eigene Übung eingeben" style="display:none; margin-top:0.5rem;">
                 </div>
+                
                 <div class="row">
                     <div class="form-group">
-                        <label for="strength-sets">Sätze</label>
-                        <input type="number" id="strength-sets" placeholder="3">
-                    </div>
-                    <div class="form-group">
                         <label for="strength-reps">Wdh.</label>
-                        <input type="number" id="strength-reps" placeholder="10">
+                        <input type="number" id="strength-reps" placeholder="12">
                     </div>
                     <div class="form-group">
                         <label for="strength-weight">Gewicht (kg)</label>
                         <input type="number" id="strength-weight" placeholder="50">
                     </div>
                 </div>
-                <button class="btn" id="btn-save-strength">Satz speichern</button>
+                
+                <!-- Satz hinzufügen -->
+                <button class="btn btn-secondary" id="btn-add-set">+ Satz hinzufügen</button>
+                
+                <!-- Temporäre Satzliste -->
+                <div id="temp-sets-container" style="margin-top: 1rem; margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-primary);">
+                    <ul id="temp-sets-list"></ul>
+                </div>
+                
+                <!-- Cloud Save -->
+                <button class="btn" id="btn-save-strength">Übung & Sätze in Cloud speichern</button>
             </div>
 
             <div class="card">
@@ -364,10 +397,10 @@
             <div class="card">
                 <h2>Schnell-Log (One-Click)</h2>
                 <div class="quick-logs">
-                    <button class="btn btn-secondary" id="btn-quick-breakfast">
+                    <button class="btn btn-secondary btn-text-left" id="btn-quick-breakfast">
                         + Frühstück: 2 Eier, Pumpernickel
                     </button>
-                    <button class="btn btn-secondary" id="btn-quick-lunch">
+                    <button class="btn btn-secondary btn-text-left" id="btn-quick-lunch">
                         + Mittag: Milbona Quarkcreme, Müsli, Nüsse
                     </button>
                 </div>
@@ -419,10 +452,7 @@
         const dateInput = document.getElementById('global-date');
         const getTodayString = () => new Date().toISOString().split('T')[0];
         dateInput.value = getTodayString();
-
-        dateInput.addEventListener('change', () => {
-            loadDayData();
-        });
+        dateInput.addEventListener('change', () => loadDayData());
 
         // Navigation
         const tabs = [
@@ -436,12 +466,11 @@
                 tabs.forEach(t => { t.btn.classList.remove('active'); t.view.classList.remove('active'); });
                 tab.btn.classList.add('active');
                 tab.view.classList.add('active');
-                
                 if (tab.btn.id === 'btn-tab-archive') loadArchiveData();
             });
         });
         
-        // Speichern-Logik
+        // --- Cardio Speichern ---
         document.getElementById('btn-save-cardio').addEventListener('click', async () => {
             const type = document.getElementById('cardio-type').options[document.getElementById('cardio-type').selectedIndex].text;
             const distance = document.getElementById('cardio-distance').value;
@@ -460,26 +489,81 @@
             } catch (e) { console.error("Fehler:", e); }
         });
 
-        document.getElementById('btn-save-strength').addEventListener('click', async () => {
-            const exercise = document.getElementById('strength-exercise').value;
-            const sets = document.getElementById('strength-sets').value;
+        // --- Workout Logik (Neue Struktur) ---
+        let currentSets = [];
+        
+        const exerciseSelect = document.getElementById('strength-exercise');
+        const exerciseCustom = document.getElementById('strength-exercise-custom');
+        
+        exerciseSelect.addEventListener('change', () => {
+            if (exerciseSelect.value === 'custom') {
+                exerciseCustom.style.display = 'block';
+            } else {
+                exerciseCustom.style.display = 'none';
+            }
+        });
+
+        // Temporären Satz hinzufügen
+        document.getElementById('btn-add-set').addEventListener('click', () => {
             const reps = document.getElementById('strength-reps').value;
             const weight = document.getElementById('strength-weight').value;
+            
+            if(!reps || !weight) return alert("Bitte Wdh. und Gewicht eingeben.");
+            
+            currentSets.push({ reps: Number(reps), weight: Number(weight) });
+            renderTempSets();
+            
+            // Eingabefeld für Wiederholungen für den nächsten Satz leeren (Gewicht bleibt meist gleich)
+            document.getElementById('strength-reps').value = '';
+        });
+
+        function renderTempSets() {
+            const list = document.getElementById('temp-sets-list');
+            if (currentSets.length === 0) {
+                list.innerHTML = "";
+            } else {
+                list.innerHTML = currentSets.map((s, i) => `<li>Satz ${i+1}: <b>${s.reps}x</b> mit <b>${s.weight}kg</b></li>`).join('');
+            }
+        }
+
+        // Komplettes Paket in Firebase speichern
+        document.getElementById('btn-save-strength').addEventListener('click', async () => {
+            let exercise = exerciseSelect.value;
+            if (exercise === 'custom') {
+                exercise = exerciseCustom.value;
+                if (!exercise) return alert("Bitte eine benutzerdefinierte Übung eingeben.");
+            }
+            
             const gym = document.getElementById('strength-gym').value || ""; 
-            if(!exercise || !sets || !reps || !weight) return alert("Bitte alle Felder ausfüllen.");
+            
+            if (currentSets.length === 0) return alert("Bitte füge über den grauen Button '+ Satz hinzufügen' mindestens einen Satz hinzu.");
             
             try {
                 await addDoc(collection(db, "workouts"), {
                     date: dateInput.value,
                     category: "strength",
-                    exercise, sets, reps, weight, gym,
+                    exercise, 
+                    gym,
+                    sets: currentSets,
                     timestamp: new Date()
                 });
+                
+                // UI nach dem Speichern zurücksetzen (Gym bleibt erhalten!)
+                currentSets = [];
+                renderTempSets();
                 document.getElementById('strength-reps').value = ''; 
+                // Übung zurück auf Standard
+                if (exerciseSelect.value === 'custom') {
+                    exerciseCustom.value = '';
+                    exerciseCustom.style.display = 'none';
+                    exerciseSelect.selectedIndex = 0;
+                }
+                
                 loadDayData();
             } catch (e) { console.error("Fehler:", e); }
         });
 
+        // --- Ernährung ---
         const saveNutrition = async (mealDetails) => {
             try {
                 await addDoc(collection(db, "nutrition"), {
@@ -494,7 +578,7 @@
         document.getElementById('btn-quick-breakfast').addEventListener('click', () => saveNutrition("Frühstück: 2 Eier, Pumpernickel"));
         document.getElementById('btn-quick-lunch').addEventListener('click', () => saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse"));
 
-        // Lade- und Render-Logik für den gewählten Tag
+        // --- Render Logik Tagesansicht ---
         async function loadDayData() {
             const selectedDate = dateInput.value;
             const workoutList = document.getElementById('workout-list');
@@ -518,14 +602,28 @@
                         <div class="history-item-details">${data.distance} km | Pace: ${data.pace} min/km</div>
                     </div>`;
                 } else if (data.category === "strength") {
-                    const gymText = data.gym ? `📍 ${data.gym} | ` : "";
+                    const gymText = data.gym ? `📍 ${data.gym}<br>` : "";
+                    let setsDisplay = "";
+                    let isArray = false;
+                    let setsStrForEdit = "";
+                    
+                    // Unterscheidung zwischen alten und neuen (Array) Daten
+                    if (Array.isArray(data.sets)) {
+                        isArray = true;
+                        setsDisplay = data.sets.map(s => `<b>${s.reps}x</b> ${s.weight}kg`).join(' | ');
+                        setsStrForEdit = data.sets.map(s => `${s.reps}x${s.weight}`).join(', ');
+                    } else {
+                        // Fallback für alte Einträge
+                        setsDisplay = `${data.sets} Sätze × ${data.reps} Wdh. mit ${data.weight} kg`;
+                    }
+
                     workoutsHtml += `<div class="history-item">
                         <div class="action-btns">
-                            <button class="icon-btn btn-edit" data-id="${id}" data-col="workouts" data-cat="strength" data-sets="${data.sets}" data-reps="${data.reps}" data-weight="${data.weight}">✏️</button>
+                            <button class="icon-btn btn-edit" data-id="${id}" data-col="workouts" data-cat="strength" data-isarray="${isArray}" data-setsstr="${setsStrForEdit}" data-sets="${data.sets}" data-reps="${data.reps}" data-weight="${data.weight}">✏️</button>
                             <button class="icon-btn btn-delete" data-id="${id}" data-col="workouts">🗑️</button>
                         </div>
                         <div class="history-item-title">💪 ${data.exercise}</div>
-                        <div class="history-item-details">${gymText}${data.sets} Sätze × ${data.reps} Wdh. mit ${data.weight} kg</div>
+                        <div class="history-item-details">${gymText}${setsDisplay}</div>
                     </div>`;
                 }
             });
@@ -550,7 +648,7 @@
             nutritionList.innerHTML = nutritionHtml || '<div class="history-item-details">Keine Mahlzeiten für dieses Datum.</div>';
         }
 
-        // Lade- und Gruppierungs-Logik für das Archiv
+        // --- Render Logik Archiv ---
         async function loadArchiveData() {
             const archiveList = document.getElementById('archive-list');
             archiveList.innerHTML = "Lade Daten...";
@@ -571,7 +669,6 @@
             let html = "";
             sortedDates.forEach(date => {
                 const gymTitle = grouped[date].gym ? ` - ${grouped[date].gym}` : "";
-                
                 const dateObj = new Date(date);
                 const dateString = dateObj.toLocaleDateString('de-DE');
 
@@ -583,7 +680,13 @@
                     if (data.category === "cardio") {
                         html += `<div class="history-item-details">🏃 ${data.type}: ${data.distance}km (${data.pace} min/km)</div>`;
                     } else if (data.category === "strength") {
-                        html += `<div class="history-item-details">💪 ${data.exercise}: ${data.sets}x${data.reps} @ ${data.weight}kg</div>`;
+                        let setsText = "";
+                        if (Array.isArray(data.sets)) {
+                            setsText = data.sets.map(s => `${s.reps}x${s.weight}kg`).join(' | ');
+                        } else {
+                            setsText = `${data.sets} Sätze x ${data.reps} Wdh @ ${data.weight}kg`;
+                        }
+                        html += `<div class="history-item-details">💪 <b>${data.exercise}:</b><br>${setsText}</div><br>`;
                     }
                 });
 
@@ -593,8 +696,9 @@
             archiveList.innerHTML = html || "Keine Historie vorhanden.";
         }
 
-        // Event-Delegation für Edit und Delete
+        // --- Event-Delegation Edit / Delete ---
         document.addEventListener('click', async (e) => {
+            // Löschen
             if (e.target.classList.contains('btn-delete')) {
                 const id = e.target.dataset.id;
                 const col = e.target.dataset.col;
@@ -606,6 +710,7 @@
                 }
             }
 
+            // Bearbeiten
             if (e.target.classList.contains('btn-edit')) {
                 const id = e.target.dataset.id;
                 const col = e.target.dataset.col;
@@ -629,13 +734,36 @@
                             if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
                         }
                     } else if (cat === "strength") {
-                        const newW = prompt("Neues Gewicht (kg):", e.target.dataset.weight);
-                        const newR = prompt("Neue Wiederholungen:", e.target.dataset.reps);
-                        const newS = prompt("Neue Sätze:", e.target.dataset.sets);
-                        if (newW && newR && newS) {
-                            await updateDoc(docRef, { weight: newW, reps: newR, sets: newS });
-                            loadDayData();
-                            if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
+                        const isArray = e.target.dataset.isarray === "true";
+                        
+                        if (isArray) {
+                            // Neue Methode für Arrays
+                            const currentSetsStr = e.target.dataset.setsstr;
+                            const newSetsStr = prompt("Sätze bearbeiten.\nFormat: Wdh x Gewicht, getrennt mit Komma (z.B. 12x50, 9x55):", currentSetsStr);
+                            
+                            if (newSetsStr) {
+                                try {
+                                    const newSetsArr = newSetsStr.split(',').map(s => {
+                                        const parts = s.trim().split('x');
+                                        return { reps: Number(parts[0]), weight: Number(parts[1] || 0) };
+                                    });
+                                    await updateDoc(docRef, { sets: newSetsArr });
+                                    loadDayData();
+                                    if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
+                                } catch(err) {
+                                    alert("Fehler beim Format. Bitte so eingeben: 12x50, 9x55");
+                                }
+                            }
+                        } else {
+                            // Fallback für deine alten Datenbank-Einträge
+                            const newW = prompt("Neues Gewicht (kg):", e.target.dataset.weight);
+                            const newR = prompt("Neue Wiederholungen:", e.target.dataset.reps);
+                            const newS = prompt("Neue Sätze:", e.target.dataset.sets);
+                            if (newW && newR && newS) {
+                                await updateDoc(docRef, { weight: newW, reps: newR, sets: newS });
+                                loadDayData();
+                                if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
+                            }
                         }
                     }
                 }
