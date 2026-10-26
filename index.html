@@ -285,7 +285,7 @@
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 4.1 - Cardio Update</div>
+        <div class="version-badge">Version 4.2 - Gym Filter & Dropdown</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -302,7 +302,7 @@
 
         <!-- Training View -->
         <div class="view active" id="view-training">
-            <!-- AKTUALISIERTES CARDIO MODUL -->
+            <!-- CARDIO MODUL -->
             <div class="card">
                 <h2>Cardio</h2>
                 <div class="form-group">
@@ -341,12 +341,18 @@
                 <button class="btn" id="btn-save-cardio">Cardio speichern</button>
             </div>
 
-            <!-- WORKOUT MODUL -->
+            <!-- WORKOUT MODUL (MIT NEUEM GYM-DROPDOWN) -->
             <div class="card">
                 <h2>Workout</h2>
                 <div class="form-group">
-                    <label for="strength-gym">Fitnessstudio (Optional)</label>
-                    <input type="text" id="strength-gym" placeholder="z.B. CleverFit">
+                    <label for="strength-gym">Fitnessstudio</label>
+                    <select id="strength-gym">
+                        <option value="CleverFit (Münster)">CleverFit (Münster)</option>
+                        <option value="Kraftfeld (Münster)">Kraftfeld (Münster)</option>
+                        <option value="VIVA Fitness (Laer)">VIVA Fitness (Laer)</option>
+                        <option value="custom">Benutzerdefiniert...</option>
+                    </select>
+                    <input type="text" id="strength-gym-custom" placeholder="Eigenes Fitnessstudio eingeben" style="display:none; margin-top:0.5rem;">
                 </div>
                 <div class="form-group">
                     <label for="strength-exercise">Übung</label>
@@ -420,11 +426,20 @@
             </div>
         </div>
 
-        <!-- Archiv View -->
+        <!-- Archiv View (Mit Filter) -->
         <div class="view" id="view-archive">
             <div class="card">
-                <h2>Trainings-Historie (Alle)</h2>
-                <div id="archive-list"></div>
+                <h2>Trainings-Historie</h2>
+                <div class="form-group">
+                    <label for="archive-gym-filter">Nach Fitnessstudio filtern</label>
+                    <select id="archive-gym-filter">
+                        <option value="ALL">Alle Gyms anzeigen</option>
+                        <option value="CleverFit (Münster)">CleverFit (Münster)</option>
+                        <option value="Kraftfeld (Münster)">Kraftfeld (Münster)</option>
+                        <option value="VIVA Fitness (Laer)">VIVA Fitness (Laer)</option>
+                    </select>
+                </div>
+                <div id="archive-list" style="margin-top: 1rem;"></div>
             </div>
         </div>
     </div>
@@ -478,7 +493,24 @@
             });
         });
         
-        // --- Cardio Speichern (Erweitert) ---
+        // --- Gym Dropdown Steuerung ---
+        const gymSelect = document.getElementById('strength-gym');
+        const gymCustom = document.getElementById('strength-gym-custom');
+        
+        gymSelect.addEventListener('change', () => {
+            if (gymSelect.value === 'custom') {
+                gymCustom.style.display = 'block';
+            } else {
+                gymCustom.style.display = 'none';
+            }
+        });
+
+        // --- Archiv Filter Listener ---
+        document.getElementById('archive-gym-filter').addEventListener('change', () => {
+            loadArchiveData();
+        });
+
+        // --- Cardio Speichern ---
         document.getElementById('btn-save-cardio').addEventListener('click', async () => {
             const type = document.getElementById('cardio-type').value;
             const distance = document.getElementById('cardio-distance').value;
@@ -496,7 +528,6 @@
                     type, distance, pace, duration, incline, level,
                     timestamp: new Date()
                 });
-                // Inputs leeren
                 document.getElementById('cardio-distance').value = '';
                 document.getElementById('cardio-pace').value = '';
                 document.getElementById('cardio-duration').value = '';
@@ -547,7 +578,13 @@
                 if (!exercise) return alert("Bitte eine benutzerdefinierte Übung eingeben.");
             }
             
-            const gym = document.getElementById('strength-gym').value || ""; 
+            // Gym-Normalisierung
+            let gym = gymSelect.value;
+            if (gym === 'custom') {
+                gym = gymCustom.value.trim();
+                if (!gym) return alert("Bitte ein benutzerdefiniertes Fitnessstudio eingeben.");
+            }
+            
             if (currentSets.length === 0) return alert("Bitte füge über den grauen Button '+ Satz hinzufügen' mindestens einen Satz hinzu.");
             
             try {
@@ -604,7 +641,7 @@
                 
                 if (data.category === "cardio") {
                     let details = [];
-                    if (data.distance) details.append ? details.push(`${data.distance} km`) : details.push(`${data.distance} km`);
+                    if (data.distance) details.push(`${data.distance} km`);
                     if (data.pace) details.push(`Pace: ${data.pace} min/km`);
                     if (data.duration) details.push(`Dauer: ${data.duration}`);
                     if (data.incline) details.push(`Neigung: ${data.incline}`);
@@ -662,9 +699,10 @@
             nutritionList.innerHTML = nutritionHtml || '<div class="history-item-details">Keine Mahlzeiten für dieses Datum.</div>';
         }
 
-        // --- Render Logik Archiv ---
+        // --- Render Logik Archiv (Mit Filter) ---
         async function loadArchiveData() {
             const archiveList = document.getElementById('archive-list');
+            const selectedGymFilter = document.getElementById('archive-gym-filter').value;
             archiveList.innerHTML = "Lade Daten...";
 
             const qWorkouts = query(collection(db, "workouts"));
@@ -673,6 +711,12 @@
             const grouped = {};
             snap.forEach(docSnap => {
                 const data = docSnap.data();
+                
+                // Wenn Filter aktiv, nur passende Einträge berücksichtigen
+                if (selectedGymFilter !== "ALL" && data.gym !== selectedGymFilter) {
+                    return;
+                }
+
                 if (!grouped[data.date]) grouped[data.date] = { items: [], gym: "" };
                 grouped[data.date].items.push(data);
                 if (data.gym) grouped[data.date].gym = data.gym; 
@@ -713,7 +757,7 @@
                 html += `</div></details>`;
             });
 
-            archiveList.innerHTML = html || "Keine Historie vorhanden.";
+            archiveList.innerHTML = html || "Keine Historie für diesen Filter vorhanden.";
         }
 
         // --- Event-Delegation Edit / Delete ---
