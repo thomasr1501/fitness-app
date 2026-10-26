@@ -326,19 +326,22 @@
 
         .sub-tabs {
             display: flex;
-            gap: 0.5rem;
+            gap: 0.25rem;
             margin-bottom: 1rem;
+            flex-wrap: wrap;
         }
         .sub-tab-btn {
             flex: 1;
-            padding: 0.5rem;
+            min-width: 75px;
+            padding: 0.5rem 0.25rem;
             background: var(--input-bg);
             border: 1px solid var(--border-color);
             color: var(--text-secondary);
             border-radius: var(--border-radius);
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             font-weight: bold;
+            text-align: center;
         }
         .sub-tab-btn.active {
             background: var(--primary-color);
@@ -357,7 +360,7 @@
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 6.1 - Dynamischer Kalorienrechner</div>
+        <div class="version-badge">Version 6.2 - Barcode-Scanner & Dynamischer Rechner</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -470,8 +473,9 @@
                 
                 <div class="sub-tabs">
                     <button class="sub-tab-btn active" id="btn-mode-api">API Suche</button>
-                    <button class="sub-tab-btn" id="btn-mode-staples">Schnellstart (Frisch)</button>
+                    <button class="sub-tab-btn" id="btn-mode-staples">Schnellstart</button>
                     <button class="sub-tab-btn" id="btn-mode-manual">Manuell</button>
+                    <button class="sub-tab-btn" id="btn-mode-barcode">📷 Barcode</button>
                 </div>
 
                 <!-- Modus 1: API Suche -->
@@ -568,6 +572,28 @@
                     </div>
                     <button class="btn" id="btn-add-food-manual">Manuell hinzufügen</button>
                 </div>
+
+                <!-- Modus 4: Barcode Kamera-Scanner -->
+                <div class="input-mode" id="mode-barcode">
+                    <div class="form-group">
+                        <button class="btn" id="btn-start-scanner">📷 Kamera-Scanner starten</button>
+                    </div>
+                    <div id="scanner-container" style="display:none; position:relative; width:100%; margin-bottom:0.5rem;">
+                        <video id="scanner-video" width="100%" autoplay playsinline style="border-radius:var(--border-radius); background:#000; max-height:250px; object-fit:cover;"></video>
+                        <button class="btn btn-secondary" id="btn-stop-scanner" style="margin-top:0.5rem;">Scanner stoppen</button>
+                    </div>
+                    <div id="scanned-product-info" style="font-size:0.9rem; color:var(--primary-color);"></div>
+                    <div class="form-group" id="barcode-amount-group" style="display:none; margin-top:0.5rem;">
+                        <label for="food-amount-barcode">Menge (g / ml)</label>
+                        <input type="number" id="food-amount-barcode" value="100">
+                        <input type="hidden" id="scanned-food-name">
+                        <input type="hidden" id="scanned-food-kcal">
+                        <input type="hidden" id="scanned-food-protein">
+                        <input type="hidden" id="scanned-food-carbs">
+                        <input type="hidden" id="scanned-food-fat">
+                        <button class="btn" id="btn-add-scanned-food" style="margin-top:0.5rem;">Gescantes Produkt hinzufügen</button>
+                    </div>
+                </div>
             </div>
 
             <div class="card">
@@ -587,8 +613,8 @@
                 <h2>💡 Abendessen-Empfehlungen</h2>
                 
                 <div class="sub-tabs" style="margin-bottom: 1rem;">
-                    <button class="sub-tab-btn active" id="btn-dinner-auto">✨ Intelligenter Vorschlag</button>
-                    <button class="sub-tab-btn" id="btn-dinner-manual">📖 Manuell wählen (20 Rezepte)</button>
+                    <button class="sub-tab-btn active" id="btn-dinner-auto">✨ Vorschlag</button>
+                    <button class="sub-tab-btn" id="btn-dinner-manual">📖 Manuell (20)</button>
                 </div>
 
                 <div class="input-mode active" id="dinner-mode-auto">
@@ -684,16 +710,18 @@
         let targetCarbs = 319;
         let currentDayStats = { cals: 0, protein: 0 };
 
-        // Eingabe-Modi (API / Schnellstart / Manuell)
+        // Eingabe-Modi (API / Schnellstart / Manuell / Barcode)
         const modeBtns = {
             api: document.getElementById('btn-mode-api'),
             staples: document.getElementById('btn-mode-staples'),
-            manual: document.getElementById('btn-mode-manual')
+            manual: document.getElementById('btn-mode-manual'),
+            barcode: document.getElementById('btn-mode-barcode')
         };
         const modeViews = {
             api: document.getElementById('mode-api'),
             staples: document.getElementById('mode-staples'),
-            manual: document.getElementById('mode-manual')
+            manual: document.getElementById('mode-manual'),
+            barcode: document.getElementById('mode-barcode')
         };
 
         Object.keys(modeBtns).forEach(mode => {
@@ -704,7 +732,123 @@
                 });
                 modeBtns[mode].classList.add('active');
                 modeViews[mode].classList.add('active');
+                if (mode !== 'barcode' && scannerStream) {
+                    stopScanner();
+                }
             });
+        });
+
+        // --- Kamera Barcode Scanner Logik ---
+        let scannerStream = null;
+        let scannerInterval = null;
+        const videoElement = document.getElementById('scanner-video');
+        const scannerContainer = document.getElementById('scanner-container');
+        const scannedInfo = document.getElementById('scanned-product-info');
+        const barcodeAmountGroup = document.getElementById('barcode-amount-group');
+
+        document.getElementById('btn-start-scanner').addEventListener('click', async () => {
+            if (!('BarcodeDetector' in window)) {
+                alert("Dein Browser unterstützt den Barcode-Scanner nicht direkt. Bitte nutze Chrome auf Android oder Safari auf iOS.");
+                return;
+            }
+
+            try {
+                scannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                videoElement.srcObject = scannerStream;
+                scannerContainer.style.display = 'block';
+                scannedInfo.innerText = "Suche Barcode...";
+                barcodeAmountGroup.style.display = 'none';
+
+                const barcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
+
+                scannerInterval = setInterval(async () => {
+                    if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                        try {
+                            const barcodes = await barcodeDetector.detect(videoElement);
+                            if (barcodes.length > 0) {
+                                const code = barcodes[0].rawValue;
+                                stopScanner();
+                                fetchProductByBarcode(code);
+                            }
+                        } catch (err) {
+                            console.error("Scanner Fehler:", err);
+                        }
+                    }
+                }, 300);
+            } catch (err) {
+                console.error("Kamera Zugriff verweigert:", err);
+                alert("Kamera-Zugriff fehlgeschlagen oder nicht erlaubt.");
+            }
+        });
+
+        document.getElementById('btn-stop-scanner').addEventListener('click', () => {
+            stopScanner();
+            scannedInfo.innerText = "Scanner gestoppt.";
+        });
+
+        function stopScanner() {
+            if (scannerInterval) clearInterval(scannerInterval);
+            if (scannerStream) {
+                scannerStream.getTracks().forEach(track => track.stop());
+                scannerStream = null;
+            }
+            scannerContainer.style.display = 'none';
+        }
+
+        async function fetchProductByBarcode(barcode) {
+            scannedInfo.innerText = `Barcode ${barcode} erkannt. Lade Produktdaten...`;
+            try {
+                const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+                const data = await res.json();
+
+                if (data.status === 1 && data.product) {
+                    const p = data.product;
+                    const name = p.product_name || "Unbekanntes Produkt";
+                    const nut = p.nutriments || {};
+                    const kcal = nut['energy-kcal_100g'] || nut['energy-kcal'] || 0;
+                    const protein = nut['proteins_100g'] || 0;
+                    const carbs = nut['carbohydrates_100g'] || 0;
+                    const fat = nut['fat_100g'] || 0;
+
+                    document.getElementById('scanned-food-name').value = name;
+                    document.getElementById('scanned-food-kcal').value = kcal;
+                    document.getElementById('scanned-food-protein').value = protein;
+                    document.getElementById('scanned-food-carbs').value = carbs;
+                    document.getElementById('scanned-food-fat').value = fat;
+
+                    scannedInfo.innerHTML = `✔ <b>${name}</b> gefunden!<br>Nährwerte pro 100g: ${kcal} kcal | E: ${protein}g | K: ${carbs}g | F: ${fat}g`;
+                    barcodeAmountGroup.style.display = 'flex';
+                } else {
+                    scannedInfo.innerText = `Produkt mit Barcode ${barcode} nicht in OpenFoodFacts gefunden.`;
+                }
+            } catch (err) {
+                console.error("API Fehler:", err);
+                scannedInfo.innerText = "Fehler beim Abrufen der Produktdaten.";
+            }
+        }
+
+        document.getElementById('btn-add-scanned-food').addEventListener('click', async () => {
+            const name = document.getElementById('scanned-food-name').value;
+            const kcal100g = Number(document.getElementById('scanned-food-kcal').value);
+            const protein100g = Number(document.getElementById('scanned-food-protein').value);
+            const carbs100g = Number(document.getElementById('scanned-food-carbs').value);
+            const fat100g = Number(document.getElementById('scanned-food-fat').value);
+            const amount = Number(document.getElementById('food-amount-barcode').value);
+
+            if (!name || !kcal100g) return alert("Kein gültiges Produkt ausgewählt.");
+            if (!amount || amount <= 0) return alert("Bitte gültige Menge eingeben.");
+
+            const factor = amount / 100;
+            await saveNutrition(
+                `${name} (${amount}g)`,
+                Math.round(kcal100g * factor),
+                Math.round((protein100g * factor) * 10) / 10,
+                Math.round((carbs100g * factor) * 10) / 10,
+                Math.round((fat100g * factor) * 10) / 10
+            );
+
+            scannedInfo.innerText = "Erfolgreich hinzugefügt!";
+            barcodeAmountGroup.style.display = 'none';
         });
 
         // Abendessen Modi (Auto vs Manuell)
@@ -1032,7 +1176,6 @@
         dateInput.value = getTodayString();
         dateInput.addEventListener('change', () => loadDayData());
 
-        // Event-Listener für Rechner-Änderungen
         document.getElementById('calc-weight').addEventListener('input', () => loadDayData());
         document.getElementById('calc-height').addEventListener('input', () => loadDayData());
         document.getElementById('calc-age').addEventListener('input', () => loadDayData());
@@ -1206,18 +1349,16 @@
             const nutritionList = document.getElementById('nutrition-list');
             const summaryBox = document.getElementById('daily-calories-summary');
             
-            // --- 1. Workouts für diesen Tag abrufen (für automatische Kalorien-Erkennung) ---
             const qWorkouts = query(collection(db, "workouts"), where("date", "==", selectedDate));
             const workoutSnap = await getDocs(qWorkouts);
             let workoutsHtml = '';
             let hasWorkoutToday = false;
-            let workoutCalsEstimate = 0;
+            let workoutCalsEstimate = 350;
 
             workoutSnap.forEach((docSnap) => {
                 const data = docSnap.data();
                 const id = docSnap.id;
                 hasWorkoutToday = true;
-                workoutCalsEstimate += 350; // Pauschaler Richtwert für eine Trainingseinheit (Gym / Cardio)
                 
                 if (data.category === "cardio") {
                     let details = [];
@@ -1249,24 +1390,17 @@
             });
             workoutList.innerHTML = workoutsHtml || '<div class="history-item-details">Kein Training für dieses Datum.</div>';
 
-            // --- 2. Dynamische TDEE & Makro Berechnung ---
             const weight = Number(document.getElementById('calc-weight').value) || 93;
             const height = Number(document.getElementById('calc-height').value) || 190;
             const age = Number(document.getElementById('calc-age').value) || 26;
             const workActivity = document.getElementById('calc-work-activity').value;
 
-            // Mifflin-St Jeor Grundumsatz (BMR)
             const bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
-
-            // Arbeitspauschale (Büro vs. handwerklicher Anteil)
-            let workCals = 350; // standard (leichte Mischung)
+            let workCals = 350;
             if (workActivity === 'light') workCals = 200;
             if (workActivity === 'active') workCals = 650;
 
-            // NEAT (Grundaktivität Alltag) ca. 400 kcal
             const neat = 400;
-
-            // Gesamtbedarf = BMR + NEAT + Arbeit + Training (falls im Archiv vorhanden)
             currentTDEE = Math.round(bmr + neat + workCals + (hasWorkoutToday ? workoutCalsEstimate : 0));
 
             targetProtein = Math.round(weight * 2.0);
@@ -1280,13 +1414,12 @@
             document.getElementById('tdee-result').innerHTML = `
                 Grundumsatz (BMR): <b>${Math.round(bmr)} kcal</b><br>
                 Beruf & Alltag: <b>+${neat + workCals} kcal</b> (${workActivity === 'moderate' ? '70% Büro / 30% Handwerk' : workActivity})<br>
-                Gym / Training: <b>${hasWorkoutToday ? `+${workoutCalsEstimate} kcal (aus Archiverfassung erkannt ✔)` : '0 kcal (heute kein Training im Archiv)'}</b><br>
+                Gym / Training: <b>${hasWorkoutToday ? `+${workoutCalsEstimate} kcal (aus Archiv erkannt ✔)` : '0 kcal (heute kein Training im Archiv)'}</b><br>
                 <hr style="border:0; border-top:1px solid var(--border-color); margin:0.5rem 0;">
                 <b>Täglicher Zielbedarf (TDEE): ${currentTDEE} kcal</b><br>
                 Ziele: Eiweiß: <b>${targetProtein}g</b> | Fett: <b>${targetFat}g</b> | Kohlenhydrate: <b>${targetCarbs}g</b>
             `;
 
-            // --- 3. Ernährung für diesen Tag laden ---
             const qNutrition = query(collection(db, "nutrition"), where("date", "==", selectedDate));
             const nutritionSnap = await getDocs(qNutrition);
             let nutritionHtml = '';
