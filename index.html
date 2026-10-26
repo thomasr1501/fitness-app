@@ -148,6 +148,32 @@
             flex-direction: column;
             gap: 0.75rem;
         }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .history-item {
+            background-color: var(--input-bg);
+            padding: 0.85rem;
+            border-radius: var(--border-radius);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .history-item-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .history-item-details {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -203,6 +229,14 @@
                 </div>
                 <button class="btn" id="btn-save-strength">Satz speichern</button>
             </div>
+
+            <!-- Historie Training -->
+            <div class="card">
+                <h2>Heutiges Training</h2>
+                <div id="workout-list" class="history-list">
+                    <!-- Daten werden dynamisch geladen -->
+                </div>
+            </div>
         </div>
 
         <!-- Nutrition View -->
@@ -231,22 +265,30 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Historie Ernährung -->
+            <div class="card">
+                <h2>Heutige Ernährung</h2>
+                <div id="nutrition-list" class="history-list">
+                    <!-- Daten werden dynamisch geladen -->
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Firebase SDK & Logik -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
-        // HIER DEINE WERTE EINTRAGEN
+        // Deine persönliche Firebase-Konfiguration
         const firebaseConfig = {
             apiKey: "AIzaSyADXyu1B6sXNR0LdG-K75V3JpU9VFTfNGc",
- 		 authDomain: "fitnesstracker-b396d.firebaseapp.com",
-  		projectId: "fitnesstracker-b396d",
-  		storageBucket: "fitnesstracker-b396d.firebasestorage.app",
- 		messagingSenderId: "609703629861",
- 		appId: "1:609703629861:web:38ea62b6ef9e0b1f9e9bcc"
+            authDomain: "fitnesstracker-b396d.firebaseapp.com",
+            projectId: "fitnesstracker-b396d",
+            storageBucket: "fitnesstracker-b396d.firebasestorage.app",
+            messagingSenderId: "609703629861",
+            appId: "1:609703629861:web:38ea62b6ef9e0b1f9e9bcc"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -254,6 +296,7 @@
 
         const getTodayString = () => new Date().toISOString().split('T')[0];
 
+        // Navigation
         const tabTraining = document.getElementById('btn-tab-training');
         const tabNutrition = document.getElementById('btn-tab-nutrition');
         const viewTraining = document.getElementById('view-training');
@@ -273,8 +316,9 @@
             viewTraining.classList.remove('active');
         });
         
+        // Speichern-Logik
         document.getElementById('btn-save-cardio').addEventListener('click', async () => {
-            const type = document.getElementById('cardio-type').value;
+            const type = document.getElementById('cardio-type').options[document.getElementById('cardio-type').selectedIndex].text;
             const distance = document.getElementById('cardio-distance').value;
             const pace = document.getElementById('cardio-pace').value;
             
@@ -285,10 +329,9 @@
                     type, distance, pace,
                     timestamp: new Date()
                 });
-                alert("Cardio-Einheit gespeichert!");
-            } catch (e) {
-                console.error("Fehler beim Speichern:", e);
-            }
+                document.getElementById('cardio-distance').value = '';
+                loadTodayData(); // Live-Update
+            } catch (e) { console.error("Fehler:", e); }
         });
 
         document.getElementById('btn-save-strength').addEventListener('click', async () => {
@@ -304,11 +347,9 @@
                     exercise, sets, reps, weight,
                     timestamp: new Date()
                 });
-                alert("Satz gespeichert!");
                 document.getElementById('strength-reps').value = ''; 
-            } catch (e) {
-                console.error("Fehler beim Speichern:", e);
-            }
+                loadTodayData(); // Live-Update
+            } catch (e) { console.error("Fehler:", e); }
         });
 
         const saveNutrition = async (mealDetails) => {
@@ -318,36 +359,68 @@
                     meal: mealDetails,
                     timestamp: new Date()
                 });
-                alert("Mahlzeit gespeichert!");
-            } catch (e) {
-                console.error("Fehler beim Speichern:", e);
-            }
+                loadTodayData(); // Live-Update
+            } catch (e) { console.error("Fehler:", e); }
         };
 
         document.getElementById('btn-quick-breakfast').addEventListener('click', () => {
-            saveNutrition("Frühstück: 2 Eier, Pumpernickel, Omega-3 Supplement");
+            saveNutrition("Frühstück: 2 Eier, Pumpernickel");
         });
 
         document.getElementById('btn-quick-lunch').addEventListener('click', () => {
-            saveNutrition("Mittagessen: Milbona Quarkcreme, zuckerreduziertes Müsli, Walnüsse, Cashews, Chiasamen, Leinsamen");
+            saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse");
         });
 
+        // Lade- und Render-Logik
         async function loadTodayData() {
             const today = getTodayString();
+            const workoutList = document.getElementById('workout-list');
+            const nutritionList = document.getElementById('nutrition-list');
             
+            // Workouts laden
             const qWorkouts = query(collection(db, "workouts"), where("date", "==", today));
             const workoutSnap = await getDocs(qWorkouts);
-            workoutSnap.forEach((doc) => {
-                console.log("Heutiges Workout geladen:", doc.data());
-            });
+            
+            let workoutsHtml = '';
+            // Umwandeln in Array zum Sortieren nach Timestamp im Browser
+            let workoutsArray = [];
+            workoutSnap.forEach((doc) => workoutsArray.push(doc.data()));
+            workoutsArray.sort((a, b) => b.timestamp - a.timestamp);
 
+            workoutsArray.forEach((data) => {
+                if (data.category === "cardio") {
+                    workoutsHtml += `<div class="history-item">
+                        <div class="history-item-title">🏃 ${data.type}</div>
+                        <div class="history-item-details">${data.distance} km | Pace: ${data.pace} min/km</div>
+                    </div>`;
+                } else if (data.category === "strength") {
+                    workoutsHtml += `<div class="history-item">
+                        <div class="history-item-title">💪 ${data.exercise}</div>
+                        <div class="history-item-details">${data.sets} Sätze × ${data.reps} Wdh. mit ${data.weight} kg</div>
+                    </div>`;
+                }
+            });
+            workoutList.innerHTML = workoutsHtml || '<div class="history-item-details">Noch kein Training heute eingetragen.</div>';
+
+            // Ernährung laden
             const qNutrition = query(collection(db, "nutrition"), where("date", "==", today));
             const nutritionSnap = await getDocs(qNutrition);
-            nutritionSnap.forEach((doc) => {
-                console.log("Heutige Ernährung geladen:", doc.data());
+            
+            let nutritionHtml = '';
+            let nutritionArray = [];
+            nutritionSnap.forEach((doc) => nutritionArray.push(doc.data()));
+            nutritionArray.sort((a, b) => b.timestamp - a.timestamp);
+
+            nutritionArray.forEach((data) => {
+                nutritionHtml += `<div class="history-item">
+                    <div class="history-item-title">🍽️ Mahlzeit</div>
+                    <div class="history-item-details">${data.meal}</div>
+                </div>`;
             });
+            nutritionList.innerHTML = nutritionHtml || '<div class="history-item-details">Noch keine Mahlzeiten heute eingetragen.</div>';
         }
 
+        // Init beim Start
         loadTodayData();
     </script>
 </body>
