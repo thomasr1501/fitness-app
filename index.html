@@ -357,7 +357,7 @@
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 6.0 - 20 Rezepte & Flexible Abendessen-Wahl</div>
+        <div class="version-badge">Version 6.1 - Dynamischer Kalorienrechner</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -582,7 +582,7 @@
                 </div>
             </div>
 
-            <!-- Intelligentes & Flexibles Abendessen-Modul (20 Rezepte) -->
+            <!-- Intelligentes & Flexibles Abendessen-Modul -->
             <div class="card">
                 <h2>💡 Abendessen-Empfehlungen</h2>
                 
@@ -591,28 +591,24 @@
                     <button class="sub-tab-btn" id="btn-dinner-manual">📖 Manuell wählen (20 Rezepte)</button>
                 </div>
 
-                <!-- Modus A: Auto-Vorschlag nach Restbilanz -->
                 <div class="input-mode active" id="dinner-mode-auto">
                     <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.75rem;">Basierend auf deiner heutigen Restbilanz:</p>
                     <button class="btn btn-secondary" id="btn-recommend-recipe">Passendes Rezept generieren</button>
                 </div>
 
-                <!-- Modus B: Manuelle Auswahl aus 20 Rezepten -->
                 <div class="input-mode" id="dinner-mode-manual">
                     <div class="form-group" style="margin-bottom:0.5rem;">
                         <label for="recipe-select-dropdown">Rezept aus der Kern-Küche wählen:</label>
-                        <select id="recipe-select-dropdown">
-                            <!-- Wird per JS befüllt -->
-                        </select>
+                        <select id="recipe-select-dropdown"></select>
                     </div>
                 </div>
 
-                <!-- Anzeige des ausgewählten oder vorgeschlagenen Rezepts -->
                 <div id="recipe-container"></div>
             </div>
 
+            <!-- Dynamischer Bedarfsrechner -->
             <div class="card">
-                <h2>Bedarfsrechner (Kalorien & Makros)</h2>
+                <h2>Bedarfsrechner (Dynamisch)</h2>
                 <div class="row">
                     <div class="form-group">
                         <label for="calc-weight">Gewicht (kg)</label>
@@ -627,11 +623,16 @@
                         <input type="number" id="calc-age" value="26">
                     </div>
                 </div>
-                <button class="btn btn-secondary" id="btn-calc-tdee">Bedarf berechnen</button>
+                <div class="form-group">
+                    <label for="calc-work-activity">Berufliche Aktivität (z.B. 70% Büro / 30% Handwerk)</label>
+                    <select id="calc-work-activity">
+                        <option value="light">Überwiegend sitzen (Büro / 100% Computer)</option>
+                        <option value="moderate" selected>Leicht aktiv (Mischung: ca. 70% Büro / 30% Handwerk)</option>
+                        <option value="active">Körperlich anstrengend (Handwerk / Stehen / Gehen)</option>
+                    </select>
+                </div>
                 <div id="tdee-result" style="margin-top: 1rem; font-size: 0.95rem; color: var(--text-secondary); line-height: 1.5;">
-                    Erhaltungsumsatz: <b>2850 kcal</b><br>
-                    Empfohlenes Ziel (Kraftsport):<br>
-                    Eiweiß: <b>186g</b> | Fett: <b>93g</b> | Kohlenhydrate: <b>319g</b>
+                    Berechne Tagesbedarf...
                 </div>
             </div>
 
@@ -728,7 +729,6 @@
             renderSelectedRecipeFromDropdown();
         });
 
-        // --- 20 Strukturierte Rezepte basierend auf dem Kern-Warenkorb ---
         const recipeDatabase = [
             {
                 name: "Thunfisch-Protein-Omelett",
@@ -852,7 +852,6 @@
             }
         ];
 
-        // Dropdown für Modus B (Manuelle Auswahl) befüllen
         const recipeDropdown = document.getElementById('recipe-select-dropdown');
         recipeDatabase.forEach((rec, index) => {
             const opt = document.createElement('option');
@@ -870,7 +869,6 @@
             displayRecipeCard(rec);
         }
 
-        // Modus A: Automatischer Vorschlag nach Restbilanz
         document.getElementById('btn-recommend-recipe').addEventListener('click', () => {
             const missingCals = currentTDEE - currentDayStats.cals;
             const missingProtein = targetProtein - currentDayStats.protein;
@@ -920,7 +918,6 @@
             `;
         }
 
-        // --- Logik zum Hinzufügen (API, Schnellstart, Manuell, Rezept) ---
         const saveNutrition = async (mealDetails, calories, protein, carbs, fat) => {
             try {
                 await addDoc(collection(db, "nutrition"), {
@@ -936,7 +933,6 @@
             } catch (e) { console.error("Fehler:", e); }
         };
 
-        // Rezept in Log übernehmen
         document.addEventListener('click', async (e) => {
             if (e.target.id === 'btn-add-recipe-log') {
                 const name = e.target.dataset.name;
@@ -1027,7 +1023,6 @@
             document.getElementById('manual-fat').value = '';
         });
 
-        // Schnell-Logs
         document.getElementById('btn-quick-breakfast').addEventListener('click', () => saveNutrition("Frühstück: 2 Eier, Pumpernickel, 100g körniger Frischkäse", 450, 32, 28, 20));
         document.getElementById('btn-quick-lunch').addEventListener('click', () => saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse", 550, 45, 50, 18));
 
@@ -1036,6 +1031,12 @@
         const getTodayString = () => new Date().toISOString().split('T')[0];
         dateInput.value = getTodayString();
         dateInput.addEventListener('change', () => loadDayData());
+
+        // Event-Listener für Rechner-Änderungen
+        document.getElementById('calc-weight').addEventListener('input', () => loadDayData());
+        document.getElementById('calc-height').addEventListener('input', () => loadDayData());
+        document.getElementById('calc-age').addEventListener('input', () => loadDayData());
+        document.getElementById('calc-work-activity').addEventListener('change', () => loadDayData());
 
         const tabs = [
             { btn: document.getElementById('btn-tab-training'), view: document.getElementById('view-training') },
@@ -1113,29 +1114,6 @@
             document.getElementById('selected-food-display').innerText = `Ausgewählt: ${item.dataset.name} (${item.dataset.kcal} kcal/100g)`;
             foodSearchInput.value = item.dataset.name;
             resultsBox.style.display = 'none';
-        });
-
-        // TDEE Rechner
-        document.getElementById('btn-calc-tdee').addEventListener('click', () => {
-            const weight = Number(document.getElementById('calc-weight').value);
-            const height = Number(document.getElementById('calc-height').value);
-            const age = Number(document.getElementById('calc-age').value);
-
-            const bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
-            currentTDEE = Math.round(bmr * 1.45);
-
-            targetProtein = Math.round(weight * 2.0);
-            targetFat = Math.round(weight * 1.0);
-            
-            const caloriesFromProtein = targetProtein * 4;
-            const caloriesFromFat = targetFat * 9;
-            const remainingCalories = currentTDEE - (caloriesFromProtein + caloriesFromFat);
-            targetCarbs = Math.max(0, Math.round(remainingCalories / 4));
-
-            document.getElementById('tdee-result').innerHTML = `Erhaltungsumsatz: <b>${currentTDEE} kcal</b><br>` +
-                                                               `Empfohlenes Ziel (Kraftsport):<br>` +
-                                                               `Eiweiß: <b>${targetProtein}g</b> | Fett: <b>${targetFat}g</b> | Kohlenhydrate: <b>${targetCarbs}g</b>`;
-            loadDayData();
         });
 
         document.getElementById('btn-save-cardio').addEventListener('click', async () => {
@@ -1228,13 +1206,18 @@
             const nutritionList = document.getElementById('nutrition-list');
             const summaryBox = document.getElementById('daily-calories-summary');
             
+            // --- 1. Workouts für diesen Tag abrufen (für automatische Kalorien-Erkennung) ---
             const qWorkouts = query(collection(db, "workouts"), where("date", "==", selectedDate));
             const workoutSnap = await getDocs(qWorkouts);
             let workoutsHtml = '';
-            
+            let hasWorkoutToday = false;
+            let workoutCalsEstimate = 0;
+
             workoutSnap.forEach((docSnap) => {
                 const data = docSnap.data();
                 const id = docSnap.id;
+                hasWorkoutToday = true;
+                workoutCalsEstimate += 350; // Pauschaler Richtwert für eine Trainingseinheit (Gym / Cardio)
                 
                 if (data.category === "cardio") {
                     let details = [];
@@ -1266,6 +1249,44 @@
             });
             workoutList.innerHTML = workoutsHtml || '<div class="history-item-details">Kein Training für dieses Datum.</div>';
 
+            // --- 2. Dynamische TDEE & Makro Berechnung ---
+            const weight = Number(document.getElementById('calc-weight').value) || 93;
+            const height = Number(document.getElementById('calc-height').value) || 190;
+            const age = Number(document.getElementById('calc-age').value) || 26;
+            const workActivity = document.getElementById('calc-work-activity').value;
+
+            // Mifflin-St Jeor Grundumsatz (BMR)
+            const bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+
+            // Arbeitspauschale (Büro vs. handwerklicher Anteil)
+            let workCals = 350; // standard (leichte Mischung)
+            if (workActivity === 'light') workCals = 200;
+            if (workActivity === 'active') workCals = 650;
+
+            // NEAT (Grundaktivität Alltag) ca. 400 kcal
+            const neat = 400;
+
+            // Gesamtbedarf = BMR + NEAT + Arbeit + Training (falls im Archiv vorhanden)
+            currentTDEE = Math.round(bmr + neat + workCals + (hasWorkoutToday ? workoutCalsEstimate : 0));
+
+            targetProtein = Math.round(weight * 2.0);
+            targetFat = Math.round(weight * 1.0);
+            
+            const caloriesFromProtein = targetProtein * 4;
+            const caloriesFromFat = targetFat * 9;
+            const remainingCalories = currentTDEE - (caloriesFromProtein + caloriesFromFat);
+            targetCarbs = Math.max(0, Math.round(remainingCalories / 4));
+
+            document.getElementById('tdee-result').innerHTML = `
+                Grundumsatz (BMR): <b>${Math.round(bmr)} kcal</b><br>
+                Beruf & Alltag: <b>+${neat + workCals} kcal</b> (${workActivity === 'moderate' ? '70% Büro / 30% Handwerk' : workActivity})<br>
+                Gym / Training: <b>${hasWorkoutToday ? `+${workoutCalsEstimate} kcal (aus Archiverfassung erkannt ✔)` : '0 kcal (heute kein Training im Archiv)'}</b><br>
+                <hr style="border:0; border-top:1px solid var(--border-color); margin:0.5rem 0;">
+                <b>Täglicher Zielbedarf (TDEE): ${currentTDEE} kcal</b><br>
+                Ziele: Eiweiß: <b>${targetProtein}g</b> | Fett: <b>${targetFat}g</b> | Kohlenhydrate: <b>${targetCarbs}g</b>
+            `;
+
+            // --- 3. Ernährung für diesen Tag laden ---
             const qNutrition = query(collection(db, "nutrition"), where("date", "==", selectedDate));
             const nutritionSnap = await getDocs(qNutrition);
             let nutritionHtml = '';
