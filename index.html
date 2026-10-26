@@ -323,11 +323,41 @@
             border-left: 4px solid var(--primary-color);
             margin-top: 1rem;
         }
+
+        .sub-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .sub-tab-btn {
+            flex: 1;
+            padding: 0.5rem;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        .sub-tab-btn.active {
+            background: var(--primary-color);
+            color: #000;
+            border-color: var(--primary-color);
+        }
+        .input-mode {
+            display: none;
+        }
+        .input-mode.active {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 5.5 - Intelligente Abendessen-Empfehlungen</div>
+        <div class="version-badge">Version 5.6 - Grundnahrungsmittel & Manuelle Eingabe</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -436,23 +466,115 @@
         <!-- Nutrition View -->
         <div class="view" id="view-nutrition">
             <div class="card">
-                <h2>Lebensmittel suchen (OpenFoodFacts)</h2>
-                <div class="form-group" style="position:relative;">
-                    <label for="food-search">Produkt suchen</label>
-                    <input type="text" id="food-search" placeholder="z.B. Haferflocken, Quark...">
-                    <div id="search-results-box"></div>
+                <h2>Lebensmittel erfassen</h2>
+                
+                <!-- Unter-Navigation für Eingabe-Modi -->
+                <div class="sub-tabs">
+                    <button class="sub-tab-btn active" id="btn-mode-api">API Suche</button>
+                    <button class="sub-tab-btn" id="btn-mode-staples">Schnellstart (Frisch)</button>
+                    <button class="sub-tab-btn" id="btn-mode-manual">Manuell</button>
                 </div>
-                <div class="form-group">
-                    <label for="food-amount">Menge (g / ml)</label>
-                    <input type="number" id="food-amount" value="100">
+
+                <!-- Modus 1: API Suche -->
+                <div class="input-mode active" id="mode-api">
+                    <div class="form-group" style="position:relative;">
+                        <label for="food-search">Produkt suchen (OpenFoodFacts)</label>
+                        <input type="text" id="food-search" placeholder="z.B. Müsli, Schokolade...">
+                        <div id="search-results-box"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="food-amount-api">Menge (g / ml)</label>
+                        <input type="number" id="food-amount-api" value="100">
+                    </div>
+                    <input type="hidden" id="selected-food-name">
+                    <input type="hidden" id="selected-food-kcal">
+                    <input type="hidden" id="selected-food-protein">
+                    <input type="hidden" id="selected-food-carbs">
+                    <input type="hidden" id="selected-food-fat">
+                    <div id="selected-food-display" style="font-size: 0.9rem; color: var(--primary-color); margin-bottom: 0.75rem;">Ausgewählt: Keines</div>
+                    <button class="btn" id="btn-add-food-api">Zur Ernährung hinzufügen</button>
                 </div>
-                <input type="hidden" id="selected-food-name">
-                <input type="hidden" id="selected-food-kcal">
-                <input type="hidden" id="selected-food-protein">
-                <input type="hidden" id="selected-food-carbs">
-                <input type="hidden" id="selected-food-fat">
-                <div id="selected-food-display" style="font-size: 0.9rem; color: var(--primary-color); margin-bottom: 0.75rem;">Ausgewählt: Keines</div>
-                <button class="btn" id="btn-add-food">Zur Ernährung hinzufügen</button>
+
+                <!-- Modus 2: Grundnahrungsmittel Schnellstart -->
+                <div class="input-mode" id="mode-staples">
+                    <div class="form-group">
+                        <label for="staple-select">Frisches Grundnahrungsmittel</label>
+                        <select id="staple-select">
+                            <!-- Obst -->
+                            <option value="Apfel|52|0.3|13.8|0.2">🍎 Apfel (52 kcal / 100g)</option>
+                            <option value="Banane|89|1.1|22.8|0.3">🍌 Banane (89 kcal / 100g)</option>
+                            <option value="Birne|57|0.4|12.4|0.1">🍐 Birne (57 kcal / 100g)</option>
+                            <option value="Erdbeeren|32|0.7|5.5|0.3">🍓 Erdbeeren (32 kcal / 100g)</option>
+                            <option value="Blaubeeren|57|0.7|14.5|0.3">🫐 Blaubeeren (57 kcal / 100g)</option>
+                            <option value="Himbeeren|52|1.2|4.8|0.7">🍇 Himbeeren (52 kcal / 100g)</option>
+                            <!-- Gemüse -->
+                            <option value="Brokkoli|34|3.7|2.4|0.4">🥦 Brokkoli (34 kcal / 100g)</option>
+                            <option value="Tomate|18|0.9|2.6|0.2">🍅 Tomate (18 kcal / 100g)</option>
+                            <option value="Gurke|15|0.6|2.6|0.1">🥒 Gurke (15 kcal / 100g)</option>
+                            <option value="Spinat|23|2.9|1.4|0.4">🥬 Spinat (23 kcal / 100g)</option>
+                            <!-- Fleisch & Fisch -->
+                            <option value="Hähnchenbrust|105|23.0|0.0|1.2">🍗 Hähnchenbrust (105 kcal / 100g)</option>
+                            <option value="Rindersteak|150|21.5|0.0|7.0">🥩 Rindersteak (150 kcal / 100g)</option>
+                            <option value="Putenbrust|102|22.5|0.0|1.0">🦃 Putenbrust (102 kcal / 100g)</option>
+                            <option value="Lachsfilet|206|20.0|0.0|13.5">🐟 Lachsfilet (206 kcal / 100g)</option>
+                            <option value="Thunfisch (frisch)|130|28.0|0.0|1.5">🍣 Thunfisch frisch (130 kcal / 100g)</option>
+                            <!-- Milchprodukte -->
+                            <option value="Magerquark|67|12.0|4.0|0.2">🥣 Magerquark (67 kcal / 100g)</option>
+                            <option value="Körniger Frischkäse|98|12.5|1.5|4.3">🧀 Körniger Frischkäse (98 kcal / 100g)</option>
+                            <option value="Hühnerei (pro Stück ~60g)|82|7.5|0.4|5.8">🥚 Hühnerei 1 Stk (ca. 60g)</option>
+                            <option value="Griechischer Joghurt (0%)|57|10.0|3.6|0.4">🥛 Griechischer Joghurt 0% (57 kcal / 100g)</option>
+                            <option value="Milch 1.5%|47|3.4|4.8|1.5">🥛 Milch 1.5% (47 kcal / 100g)</option>
+                            <!-- Kohlenhydrate & Getreide -->
+                            <option value="Reis (gekocht)|130|2.7|28.0|0.3">🍚 Reis gekocht (130 kcal / 100g)</option>
+                            <option value="Haferflocken|368|13.5|58.0|7.0">🥣 Haferflocken (368 kcal / 100g)</option>
+                            <option value="Kartoffeln (gekocht)|86|2.0|17.5|0.1">🥔 Kartoffeln gekocht (86 kcal / 100g)</option>
+                            <option value="Vollkornbrot|214|7.5|38.0|2.2">🍞 Vollkornbrot (214 kcal / 100g)</option>
+                            <option value="Nudeln (gekocht)|157|5.0|30.0|1.1">🍝 Nudeln gekocht (157 kcal / 100g)</option>
+                            <!-- Fette & Nüsse -->
+                            <option value="Erdnussbutter|588|25.0|16.0|50.0">🥜 Erdnussbutter (588 kcal / 100g)</option>
+                            <option value="Olivenöl|884|0.0|0.0|100.0">🫒 Olivenöl (884 kcal / 100g)</option>
+                            <option value="Mandeln|575|21.0|9.0|50.0">🌰 Mandeln (575 kcal / 100g)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="food-amount-staple">Menge (g)</label>
+                        <input type="number" id="food-amount-staple" value="100">
+                    </div>
+                    <button class="btn" id="btn-add-food-staple">Schnellstart hinzufügen</button>
+                </div>
+
+                <!-- Modus 3: Manuelle Eingabe -->
+                <div class="input-mode" id="mode-manual">
+                    <div class="form-group">
+                        <label for="manual-name">Lebensmittel-Name</label>
+                        <input type="text" id="manual-name" placeholder="z.B. Omas Kartoffelsalat">
+                    </div>
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="manual-amount">Menge (g)</label>
+                            <input type="number" id="manual-amount" value="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="manual-kcal">kcal (pro 100g)</label>
+                            <input type="number" id="manual-kcal" placeholder="z.B. 150">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="manual-protein">Eiweiß (g/100g)</label>
+                            <input type="number" id="manual-protein" placeholder="0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="manual-carbs">Kohlenh. (g/100g)</label>
+                            <input type="number" id="manual-carbs" placeholder="0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="manual-fat">Fett (g/100g)</label>
+                            <input type="number" id="manual-fat" placeholder="0" step="0.1">
+                        </div>
+                    </div>
+                    <button class="btn" id="btn-add-food-manual">Manuell hinzufügen</button>
+                </div>
             </div>
 
             <div class="card">
@@ -545,108 +667,106 @@
         let targetProtein = 186;
         let targetFat = 93;
         let targetCarbs = 319;
-
-        // Aktuelle Tageswerte für den Rezept-Generator
         let currentDayStats = { cals: 0, protein: 0 };
+
+        // Unter-Navigation Modi (API / Schnellstart / Manuell)
+        const modeBtns = {
+            api: document.getElementById('btn-mode-api'),
+            staples: document.getElementById('btn-mode-staples'),
+            manual: document.getElementById('btn-mode-manual')
+        };
+        const modeViews = {
+            api: document.getElementById('mode-api'),
+            staples: document.getElementById('mode-staples'),
+            manual: document.getElementById('mode-manual')
+        };
+
+        Object.keys(modeBtns).forEach(mode => {
+            modeBtns[mode].addEventListener('click', () => {
+                Object.keys(modeBtns).forEach(m => {
+                    modeBtns[m].classList.remove('active');
+                    modeViews[m].classList.remove('active');
+                });
+                modeBtns[mode].classList.add('active');
+                modeViews[mode].classList.add('active');
+            });
+        });
 
         // 10 Zielbasierte Rezepte Datenbank
         const recipeDatabase = [
             {
                 name: "Thunfisch-Protein-Omelett",
-                type: "high-protein",
-                minCals: 300, maxCals: 500,
                 calories: 420, protein: 48, carbs: 8, fat: 21,
                 ingredients: ["3 Eier", "1 Dose Thunfisch im eigenen Saft (150g)", "1 Handvoll Spinat", "Salz & Pfeffer"],
                 prep: "Eier verquirlen und mit Salz/Pfeffer würzen. In einer Pfanne stocken lassen, Thunfisch und Spinat dazugeben, zusammenklappen und kurz anbraten."
             },
             {
                 name: "Hähnchen-Gemüse-Pfanne mit Reis",
-                type: "balanced",
-                minCals: 500, maxCals: 800,
                 calories: 650, protein: 55, carbs: 65, fat: 14,
                 ingredients: ["200g Hähnchenbrustfilet", "100g Reis (Rohgewicht)", "200g TK-Mexikogemüse", "1 TL Olivenöl", "Sojasauce"],
                 prep: "Reis kochen. Hähnchen in Streifen geschnitten in Olivenöl anbraten, Gemüse mitrösten, mit Sojasauce ablöschen und zusammen mit dem Reis servieren."
             },
             {
                 name: "Körniger Frischkäse & Lachs Bowl",
-                type: "high-protein",
-                minCals: 350, maxCals: 600,
                 calories: 480, protein: 44, carbs: 15, fat: 26,
                 ingredients: ["200g Körniger Frischkäse", "80g Räucherlachs", "1 Tomate", "Gurkenscheiben", "Schnittlauch"],
                 prep: "Körnigen Frischkäse in eine Schüssel geben, Räucherlachs in Stücke zupfen und unterheben. Mit gewürfelten Tomaten, Gurken und Schnittlauch garnieren."
             },
             {
                 name: "Magerquark-Beeren-Abendbowl",
-                type: "light-protein",
-                minCals: 200, maxCals: 400,
                 calories: 310, protein: 38, carbs: 30, fat: 4,
                 ingredients: ["250g Magerquark", "100g Himbeeren (TK oder frisch)", "1 TL Honig", "15g Chiasamen"],
                 prep: "Magerquark mit einem Schluck Wasser glattrühren. Beeren unterheben und mit Chiasamen sowie optional 1 TL Honig toppen."
             },
             {
                 name: "Rinder-Steak mit Ofenkartoffeln",
-                type: "heavy-balanced",
-                minCals: 700, maxCals: 1200,
                 calories: 820, protein: 62, carbs: 70, fat: 30,
                 ingredients: ["250g Rumpsteak", "300g Kartoffeln", "1 EL Olivenöl", "Rosmarin", "Brokkoli (150g)"],
                 prep: "Kartoffeln als Wedges im Ofen bei 200°C backen. Brokkoli dämpfen. Steak in der Pfanne scharf anbraten und nach Wunsch gar ziehen lassen."
             },
             {
                 name: "Lachsfilet mit Kräuterquark & Kartoffeln",
-                type: "balanced",
-                minCals: 550, maxCals: 850,
                 calories: 680, protein: 45, carbs: 45, fat: 34,
                 ingredients: ["200g Lachsfilet", "250g Kartoffeln", "150g Magerquark", "Frische Kräuter & Zitrone"],
                 prep: "Kartoffeln kochen. Lachs in einer beschichteten Pfanne ohne viel Fett braten. Quark mit Kräutern und Zitrone als Dip dazu servieren."
             },
             {
                 name: "Puten-Wraps mit Salat & Joghurt-Dip",
-                type: "balanced",
-                minCals: 450, maxCals: 700,
                 calories: 540, protein: 48, carbs: 52, fat: 16,
                 ingredients: ["2 Vollkorn-Wraps", "180g Putenbrust", "Eisbergsalat, Tomate", "150g griech. Joghurt (0% Fett)"],
                 prep: "Putenbrust in Streifen anbraten. Joghurt mit Kräutern würzen. Wraps kurz erwärmen, mit Salat, Fleisch und Dip füllen und einrollen."
             },
             {
                 name: "Schnelles Rührei-Vollkornbrot",
-                type: "light",
-                minCals: 250, maxCals: 450,
                 calories: 380, protein: 26, carbs: 32, fat: 16,
                 ingredients: ["3 Eier", "2 Scheiben Vollkornbrot", "1 Scheibe Schinken", "Schnittlauch"],
                 prep: "Eier in einer Pfanne zu Rührei verarbeiten. Auf den mit Schinken belegten Vollkornbrotscheiben anrichten und mit Schnittlauch bestreuen."
             },
             {
                 name: "Griechischer Bauernsalat mit Schafskäse",
-                type: "light",
-                minCals: 200, maxCals: 400,
                 calories: 350, protein: 18, carbs: 12, fat: 26,
                 ingredients: ["150g Feta / Schafskäse (Fettreduziert)", "Gurke, Tomaten, Oliven, rote Zwiebel", "1 EL Olivenöl & Essig"],
                 prep: "Gemüse würfeln, Oliven und gewürfelten Feta dazugeben. Mit Olivenöl, Essig, Oregano, Salz und Pfeffer marinieren."
             },
             {
                 name: "Hüttenkäse-Vollkorn-Stulle mit Radieschen",
-                type: "light-protein",
-                minCals: 200, maxCals: 400,
                 calories: 320, protein: 30, carbs: 35, fat: 6,
                 ingredients: ["200g Körniger Frischkäse", "2 Scheiben Pumpernickel", "Ein Bund Radieschen", "Kresse"],
                 prep: "Pumpernickel großzügig mit körnigem Frischkäse bestreichen. Radieschen in Scheiben schneiden, darauflegen und mit Kresse toppen."
             }
         ];
 
-        // Intelligente Rezept-Auswahl Logik
         document.getElementById('btn-recommend-recipe').addEventListener('click', () => {
             const container = document.getElementById('recipe-container');
             const missingCals = currentTDEE - currentDayStats.cals;
             const missingProtein = targetProtein - currentDayStats.protein;
 
-            // Filtern & Bewerten der Rezepte
             let bestRecipe = recipeDatabase[0];
             let minScore = Infinity;
 
             recipeDatabase.forEach(recipe => {
-                // Score-Berechnung: Wie nah kommt das Rezept an die noch offenen Kalorien und das Proteindefizit heran?
                 const calsDiff = Math.abs(recipe.calories - Math.max(200, missingCals));
-                const proteinBonus = recipe.protein >= 40 && missingProtein > 20 ? -150 : 0; // Bevorzuge Protein wenn nötig
+                const proteinBonus = recipe.protein >= 40 && missingProtein > 20 ? -150 : 0;
                 const score = calsDiff + proteinBonus;
 
                 if (score < minScore) {
@@ -655,7 +775,6 @@
                 }
             });
 
-            // HTML für das empfohlene Rezept generieren
             container.innerHTML = `
                 <div class="recipe-box">
                     <h3 style="margin-bottom:0.5rem; color:var(--primary-color);">✨ ${bestRecipe.name}</h3>
@@ -682,33 +801,104 @@
             `;
         });
 
-        // Rezept direkt in den Log eintragen
-        document.addEventListener('click', async (e) => {
-            if (e.target.id === 'btn-add-recipe-log') {
-                const name = e.target.dataset.name;
-                const cals = Number(e.target.dataset.cals);
-                const p = Number(e.target.dataset.p);
-                const c = Number(e.target.dataset.c);
-                const f = Number(e.target.dataset.f);
+        // --- Logik zum Hinzufügen (API, Schnellstart, Manuell) ---
+        const saveNutrition = async (mealDetails, calories, protein, carbs, fat) => {
+            try {
+                await addDoc(collection(db, "nutrition"), {
+                    date: dateInput.value,
+                    meal: mealDetails,
+                    calories: calories,
+                    protein: protein,
+                    carbs: carbs,
+                    fat: fat,
+                    timestamp: new Date()
+                });
+                loadDayData();
+            } catch (e) { console.error("Fehler:", e); }
+        };
 
-                try {
-                    await addDoc(collection(db, "nutrition"), {
-                        date: dateInput.value,
-                        meal: `Abendessen: ${name}`,
-                        calories: cals,
-                        protein: p,
-                        carbs: c,
-                        fat: f,
-                        timestamp: new Date()
-                    });
-                    document.getElementById('recipe-container').innerHTML = `<div style="color:var(--success-color); margin-top:0.75rem; font-weight:bold;">✔ Erfolgreich zum Tages-Log hinzugefügt!</div>`;
-                    loadDayData();
-                } catch (err) {
-                    console.error("Fehler beim Eintragen:", err);
-                }
-            }
+        // 1. API Hinzufügen
+        document.getElementById('btn-add-food-api').addEventListener('click', async () => {
+            const name = document.getElementById('selected-food-name').value;
+            const kcal100g = Number(document.getElementById('selected-food-kcal').value);
+            const protein100g = Number(document.getElementById('selected-food-protein').value);
+            const carbs100g = Number(document.getElementById('selected-food-carbs').value);
+            const fat100g = Number(document.getElementById('selected-food-fat').value);
+            const amount = Number(document.getElementById('food-amount-api').value);
+
+            if (!name || !kcal100g) return alert("Bitte wähle ein Produkt aus der API-Suche aus.");
+            if (!amount || amount <= 0) return alert("Bitte eine gültige Menge eingeben.");
+
+            const factor = amount / 100;
+            await saveNutrition(
+                `${name} (${amount}g)`,
+                Math.round(kcal100g * factor),
+                Math.round((protein100g * factor) * 10) / 10,
+                Math.round((carbs100g * factor) * 10) / 10,
+                Math.round((fat100g * factor) * 10) / 10
+            );
+
+            document.getElementById('food-search').value = '';
+            document.getElementById('selected-food-name').value = '';
+            document.getElementById('selected-food-kcal').value = '';
+            document.getElementById('selected-food-display').innerText = "Ausgewählt: Keines";
         });
 
+        // 2. Schnellstart Grundnahrungsmittel Hinzufügen
+        document.getElementById('btn-add-food-staple').addEventListener('click', async () => {
+            const stapleData = document.getElementById('staple-select').value.split('|');
+            const name = stapleData[0];
+            const kcal100g = Number(stapleData[1]);
+            const p100g = Number(stapleData[2]);
+            const c100g = Number(stapleData[3]);
+            const f100g = Number(stapleData[4]);
+            const amount = Number(document.getElementById('food-amount-staple').value);
+
+            if (!amount || amount <= 0) return alert("Bitte eine gültige Menge eingeben.");
+
+            const factor = amount / 100;
+            await saveNutrition(
+                `${name} (${amount}g)`,
+                Math.round(kcal100g * factor),
+                Math.round((p100g * factor) * 10) / 10,
+                Math.round((c100g * factor) * 10) / 10,
+                Math.round((f100g * factor) * 10) / 10
+            );
+        });
+
+        // 3. Manuell Hinzufügen
+        document.getElementById('btn-add-food-manual').addEventListener('click', async () => {
+            const name = document.getElementById('manual-name').value.trim();
+            const amount = Number(document.getElementById('manual-amount').value);
+            const kcal100g = Number(document.getElementById('manual-kcal').value);
+            const p100g = Number(document.getElementById('manual-protein').value) || 0;
+            const c100g = Number(document.getElementById('manual-carbs').value) || 0;
+            const f100g = Number(document.getElementById('manual-fat').value) || 0;
+
+            if (!name) return alert("Bitte einen Namen für das Lebensmittel eingeben.");
+            if (!amount || !kcal100g) return alert("Bitte Menge und kcal (pro 100g) eingeben.");
+
+            const factor = amount / 100;
+            await saveNutrition(
+                `${name} (${amount}g)`,
+                Math.round(kcal100g * factor),
+                Math.round((p100g * factor) * 10) / 10,
+                Math.round((c100g * factor) * 10) / 10,
+                Math.round((f100g * factor) * 10) / 10
+            );
+
+            document.getElementById('manual-name').value = '';
+            document.getElementById('manual-kcal').value = '';
+            document.getElementById('manual-protein').value = '';
+            document.getElementById('manual-carbs').value = '';
+            document.getElementById('manual-fat').value = '';
+        });
+
+        // Schnell-Logs
+        document.getElementById('btn-quick-breakfast').addEventListener('click', () => saveNutrition("Frühstück: 2 Eier, Pumpernickel, 100g körniger Frischkäse", 450, 32, 28, 20));
+        document.getElementById('btn-quick-lunch').addEventListener('click', () => saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse", 550, 45, 50, 18));
+
+        // Datum & Tabs
         const dateInput = document.getElementById('global-date');
         const getTodayString = () => new Date().toISOString().split('T')[0];
         dateInput.value = getTodayString();
@@ -737,7 +927,7 @@
 
         document.getElementById('archive-gym-filter').addEventListener('change', () => loadArchiveData());
 
-        // --- OpenFoodFacts API Suche mit Makros ---
+        // --- OpenFoodFacts API Suche ---
         let searchTimeout;
         const foodSearchInput = document.getElementById('food-search');
         const resultsBox = document.getElementById('search-results-box');
@@ -765,7 +955,7 @@
                             const fat100g = nut['fat_100g'] || 0;
 
                             return `<div class="search-result-item" data-name="${name}" data-kcal="${kcal100g}" data-protein="${protein100g}" data-carbs="${carbs100g}" data-fat="${fat100g}">
-                                <b>${name}</b> (${kcal100g} kcal | E: ${protein100g}g | K: ${carbs100g}g | F: ${fat100g}g / 100g)
+                                <b>${name}</b> (${kcal100g} kcal | E: ${protein100g}g / 100g)
                             </div>`;
                         }).join('');
                         resultsBox.style.display = 'block';
@@ -773,9 +963,7 @@
                         resultsBox.innerHTML = `<div class="search-result-item">Keine Produkte gefunden</div>`;
                         resultsBox.style.display = 'block';
                     }
-                } catch(err) {
-                    console.error("API Fehler:", err);
-                }
+                } catch(err) { console.error("API Fehler:", err); }
             }, 400);
         });
 
@@ -794,59 +982,7 @@
             resultsBox.style.display = 'none';
         });
 
-        document.getElementById('btn-add-food').addEventListener('click', async () => {
-            const name = document.getElementById('selected-food-name').value;
-            const kcal100g = Number(document.getElementById('selected-food-kcal').value);
-            const protein100g = Number(document.getElementById('selected-food-protein').value);
-            const carbs100g = Number(document.getElementById('selected-food-carbs').value);
-            const fat100g = Number(document.getElementById('selected-food-fat').value);
-            const amount = Number(document.getElementById('food-amount').value);
-
-            if (!name || !kcal100g) return alert("Bitte wähle ein Produkt aus der API-Suche aus.");
-            if (!amount || amount <= 0) return alert("Bitte eine gültige Menge eingeben.");
-
-            const factor = amount / 100;
-            const totalCalories = Math.round(kcal100g * factor);
-            const totalProtein = Math.round((protein100g * factor) * 10) / 10;
-            const totalCarbs = Math.round((carbs100g * factor) * 10) / 10;
-            const totalFat = Math.round((fat100g * factor) * 10) / 10;
-
-            try {
-                await addDoc(collection(db, "nutrition"), {
-                    date: dateInput.value,
-                    meal: `${name} (${amount}g)`,
-                    calories: totalCalories,
-                    protein: totalProtein,
-                    carbs: totalCarbs,
-                    fat: totalFat,
-                    timestamp: new Date()
-                });
-                document.getElementById('food-search').value = '';
-                document.getElementById('selected-food-name').value = '';
-                document.getElementById('selected-food-kcal').value = '';
-                document.getElementById('selected-food-display').innerText = "Ausgewählt: Keines";
-                loadDayData();
-            } catch (e) { console.error("Fehler:", e); }
-        });
-
-        const saveNutrition = async (mealDetails, calories, protein, carbs, fat) => {
-            try {
-                await addDoc(collection(db, "nutrition"), {
-                    date: dateInput.value,
-                    meal: mealDetails,
-                    calories: calories,
-                    protein: protein,
-                    carbs: carbs,
-                    fat: fat,
-                    timestamp: new Date()
-                });
-                loadDayData();
-            } catch (e) { console.error("Fehler:", e); }
-        };
-
-        document.getElementById('btn-quick-breakfast').addEventListener('click', () => saveNutrition("Frühstück: 2 Eier, Pumpernickel, 100g körniger Frischkäse", 450, 32, 28, 20));
-        document.getElementById('btn-quick-lunch').addEventListener('click', () => saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse", 550, 45, 50, 18));
-
+        // TDEE Rechner
         document.getElementById('btn-calc-tdee').addEventListener('click', () => {
             const weight = Number(document.getElementById('calc-weight').value);
             const height = Number(document.getElementById('calc-height').value);
@@ -1029,7 +1165,6 @@
             });
             nutritionList.innerHTML = nutritionHtml || '<div class="history-item-details">Keine Mahlzeiten für dieses Datum.</div>';
 
-            // Zwischenspeichern für den Rezept-Generator
             currentDayStats.cals = totalCals;
             currentDayStats.protein = totalProtein;
 
