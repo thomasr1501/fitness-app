@@ -308,4 +308,681 @@
             padding: 1rem;
             border-radius: var(--border-radius);
             margin-bottom: 1rem;
-            border-left: 4px solid
+            border-left: 4px solid var(--warning-color);
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="version-badge">Version 5.2 - Fix & Stabil</div>
+
+        <!-- Globales Datum -->
+        <div class="global-date-container">
+            <label for="global-date">📅 Datum:</label>
+            <input type="date" id="global-date">
+        </div>
+
+        <!-- Navigation -->
+        <div class="tabs">
+            <button class="tab-btn active" id="btn-tab-training">Training</button>
+            <button class="tab-btn" id="btn-tab-nutrition">Ernährung</button>
+            <button class="tab-btn" id="btn-tab-archive">Archiv</button>
+        </div>
+
+        <!-- Training View -->
+        <div class="view active" id="view-training">
+            <div class="card">
+                <h2>Cardio</h2>
+                <div class="form-group">
+                    <label for="cardio-type">Sportart</label>
+                    <select id="cardio-type">
+                        <option value="Laufen">Laufen</option>
+                        <option value="Laufband">Laufband</option>
+                        <option value="Stairmaster">Stairmaster</option>
+                        <option value="Fahrrad">Fahrrad</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label for="cardio-distance">Distanz (km)</label>
+                        <input type="number" id="cardio-distance" placeholder="z.B. 4" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="cardio-pace">Pace (min/km)</label>
+                        <input type="text" id="cardio-pace" placeholder="z.B. 6:00">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label for="cardio-duration">Dauer</label>
+                        <input type="text" id="cardio-duration" placeholder="z.B. 20 min">
+                    </div>
+                    <div class="form-group">
+                        <label for="cardio-incline">Neigung</label>
+                        <input type="text" id="cardio-incline" placeholder="z.B. 5%">
+                    </div>
+                    <div class="form-group">
+                        <label for="cardio-level">Stufe</label>
+                        <input type="text" id="cardio-level" placeholder="z.B. Level 8">
+                    </div>
+                </div>
+                <button class="btn" id="btn-save-cardio">Cardio speichern</button>
+            </div>
+
+            <div class="card">
+                <h2>Workout</h2>
+                <div class="form-group">
+                    <label for="strength-gym">Fitnessstudio</label>
+                    <select id="strength-gym">
+                        <option value="CleverFit (Münster)">CleverFit (Münster)</option>
+                        <option value="Kraftfeld (Münster)">Kraftfeld (Münster)</option>
+                        <option value="VIVA Fitness (Laer)">VIVA Fitness (Laer)</option>
+                        <option value="custom">Benutzerdefiniert...</option>
+                    </select>
+                    <input type="text" id="strength-gym-custom" placeholder="Eigenes Fitnessstudio eingeben" style="display:none; margin-top:0.5rem;">
+                </div>
+                <div class="form-group">
+                    <label for="strength-exercise">Übung</label>
+                    <select id="strength-exercise">
+                        <option value="Rudern am Kabelzug">Rudern am Kabelzug</option>
+                        <option value="Chin-Assist">Chin-Assist</option>
+                        <option value="Hyperextension">Hyperextension</option>
+                        <option value="Seitheben">Seitheben</option>
+                        <option value="Bizeps-Curls">Bizeps-Curls</option>
+                        <option value="Trizeps-Curls">Trizeps-Curls</option>
+                        <option value="Brust am Kabelzug (oben)">Brust am Kabelzug (oben)</option>
+                        <option value="Brust am Kabelzug (unten)">Brust am Kabelzug (unten)</option>
+                        <option value="Sit-ups">Sit-ups</option>
+                        <option value="custom">Benutzerdefiniert...</option>
+                    </select>
+                    <input type="text" id="strength-exercise-custom" placeholder="Eigene Übung eingeben" style="display:none; margin-top:0.5rem;">
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label for="strength-reps">Wdh.</label>
+                        <input type="number" id="strength-reps" placeholder="12">
+                    </div>
+                    <div class="form-group">
+                        <label for="strength-weight">Gewicht (kg)</label>
+                        <input type="number" id="strength-weight" placeholder="50">
+                    </div>
+                </div>
+                <button class="btn btn-secondary" id="btn-add-set">+ Satz hinzufügen</button>
+                <div id="temp-sets-container" style="margin-top: 1rem; margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-primary);">
+                    <ul id="temp-sets-list"></ul>
+                </div>
+                <button class="btn" id="btn-save-strength">Übung & Sätze in Cloud speichern</button>
+            </div>
+
+            <div class="card">
+                <h2>Training am gewählten Tag</h2>
+                <div id="workout-list" class="history-list"></div>
+            </div>
+        </div>
+
+        <!-- Nutrition View -->
+        <div class="view" id="view-nutrition">
+            <div class="card">
+                <h2>Lebensmittel suchen (OpenFoodFacts)</h2>
+                <div class="form-group" style="position:relative;">
+                    <label for="food-search">Produkt suchen</label>
+                    <input type="text" id="food-search" placeholder="z.B. Haferflocken, Quark...">
+                    <div id="search-results-box"></div>
+                </div>
+                <div class="form-group">
+                    <label for="food-amount">Menge (g / ml)</label>
+                    <input type="number" id="food-amount" value="100">
+                </div>
+                <input type="hidden" id="selected-food-name">
+                <input type="hidden" id="selected-food-kcal">
+                <div id="selected-food-display" style="font-size: 0.9rem; color: var(--primary-color); margin-bottom: 0.75rem;">Ausgewählt: Keines</div>
+                <button class="btn" id="btn-add-food">Zur Ernährung hinzufügen</button>
+            </div>
+
+            <div class="card">
+                <h2>Schnell-Log (One-Click)</h2>
+                <div class="quick-logs">
+                    <button class="btn btn-secondary btn-text-left" id="btn-quick-breakfast">
+                        + Frühstück: 2 Eier, Pumpernickel (~350 kcal)
+                    </button>
+                    <button class="btn btn-secondary btn-text-left" id="btn-quick-lunch">
+                        + Mittag: Quarkcreme, Müsli, Nüsse (~550 kcal)
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Kalorienbedarf-Rechner (TDEE)</h2>
+                <div class="row">
+                    <div class="form-group">
+                        <label for="calc-weight">Gewicht (kg)</label>
+                        <input type="number" id="calc-weight" value="93">
+                    </div>
+                    <div class="form-group">
+                        <label for="calc-height">Größe (cm)</label>
+                        <input type="number" id="calc-height" value="190">
+                    </div>
+                    <div class="form-group">
+                        <label for="calc-age">Alter</label>
+                        <input type="number" id="calc-age" value="26">
+                    </div>
+                </div>
+                <button class="btn btn-secondary" id="btn-calc-tdee">Bedarf berechnen</button>
+                <div id="tdee-result" style="margin-top: 1rem; font-size: 0.95rem; color: var(--text-secondary);">Erhaltungsumsatz: <b>2850 kcal</b></div>
+            </div>
+
+            <div class="card">
+                <h2>Ernährung am gewählten Tag</h2>
+                <div class="summary-box" id="daily-calories-summary">Lade Bilanz...</div>
+                <div id="nutrition-list" class="history-list"></div>
+            </div>
+        </div>
+
+        <!-- Archiv View -->
+        <div class="view" id="view-archive">
+            <div class="card">
+                <h2>Trainings- & Ernährungs-Archiv</h2>
+                <div class="form-group">
+                    <label for="archive-gym-filter">Nach Fitnessstudio filtern (nur Workouts)</label>
+                    <select id="archive-gym-filter">
+                        <option value="ALL">Alle Gyms anzeigen</option>
+                        <option value="CleverFit (Münster)">CleverFit (Münster)</option>
+                        <option value="Kraftfeld (Münster)">Kraftfeld (Münster)</option>
+                        <option value="VIVA Fitness (Laer)">VIVA Fitness (Laer)</option>
+                    </select>
+                </div>
+                <div id="archive-list" style="margin-top: 1rem;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK & Logik -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where, deleteDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyADXyu1B6sXNR0LdG-K75V3JpU9VFTfNGc",
+            authDomain: "fitnesstracker-b396d.firebaseapp.com",
+            projectId: "fitnesstracker-b396d",
+            storageBucket: "fitnesstracker-b396d.firebasestorage.app",
+            messagingSenderId: "609703629861",
+            appId: "1:609703629861:web:38ea62b6ef9e0b1f9e9bcc"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let currentTDEE = 2850;
+
+        const dateInput = document.getElementById('global-date');
+        const getTodayString = () => new Date().toISOString().split('T')[0];
+        dateInput.value = getTodayString();
+        dateInput.addEventListener('change', () => loadDayData());
+
+        const tabs = [
+            { btn: document.getElementById('btn-tab-training'), view: document.getElementById('view-training') },
+            { btn: document.getElementById('btn-tab-nutrition'), view: document.getElementById('view-nutrition') },
+            { btn: document.getElementById('btn-tab-archive'), view: document.getElementById('view-archive') }
+        ];
+
+        tabs.forEach(tab => {
+            tab.btn.addEventListener('click', () => {
+                tabs.forEach(t => { t.btn.classList.remove('active'); t.view.classList.remove('active'); });
+                tab.btn.classList.add('active');
+                tab.view.classList.add('active');
+                if (tab.btn.id === 'btn-tab-archive') loadArchiveData();
+            });
+        });
+        
+        const gymSelect = document.getElementById('strength-gym');
+        const gymCustom = document.getElementById('strength-gym-custom');
+        gymSelect.addEventListener('change', () => {
+            gymCustom.style.display = gymSelect.value === 'custom' ? 'block' : 'none';
+        });
+
+        document.getElementById('archive-gym-filter').addEventListener('change', () => loadArchiveData());
+
+        let searchTimeout;
+        const foodSearchInput = document.getElementById('food-search');
+        const resultsBox = document.getElementById('search-results-box');
+
+        foodSearchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const queryText = e.target.value.trim();
+            if (queryText.length < 2) {
+                resultsBox.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(queryText)}&search_simple=1&action=process&json=1`);
+                    const data = await res.json();
+                    
+                    if (data.products && data.products.length > 0) {
+                        resultsBox.innerHTML = data.products.slice(0, 5).map(p => {
+                            const name = p.product_name || "Unbekanntes Produkt";
+                            const kcal100g = p.nutriments ? (p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0) : 0;
+                            return `<div class="search-result-item" data-name="${name}" data-kcal="${kcal100g}">
+                                <b>${name}</b> (${kcal100g} kcal / 100g)
+                            </div>`;
+                        }).join('');
+                        resultsBox.style.display = 'block';
+                    } else {
+                        resultsBox.innerHTML = `<div class="search-result-item">Keine Produkte gefunden</div>`;
+                        resultsBox.style.display = 'block';
+                    }
+                } catch(err) {
+                    console.error("API Fehler:", err);
+                }
+            }, 400);
+        });
+
+        resultsBox.addEventListener('click', (e) => {
+            const item = e.target.closest('.search-result-item');
+            if (!item || !item.dataset.name) return;
+
+            document.getElementById('selected-food-name').value = item.dataset.name;
+            document.getElementById('selected-food-kcal').value = item.dataset.kcal;
+            document.getElementById('selected-food-display').innerText = `Ausgewählt: ${item.dataset.name} (${item.dataset.kcal} kcal pro 100g)`;
+            foodSearchInput.value = item.dataset.name;
+            resultsBox.style.display = 'none';
+        });
+
+        document.getElementById('btn-add-food').addEventListener('click', async () => {
+            const name = document.getElementById('selected-food-name').value;
+            const kcal100g = Number(document.getElementById('selected-food-kcal').value);
+            const amount = Number(document.getElementById('food-amount').value);
+
+            if (!name || !kcal100g) return alert("Bitte wähle ein Produkt aus der API-Suche aus.");
+            if (!amount || amount <= 0) return alert("Bitte eine gültige Menge eingeben.");
+
+            const totalCalories = Math.round((kcal100g / 100) * amount);
+
+            try {
+                await addDoc(collection(db, "nutrition"), {
+                    date: dateInput.value,
+                    meal: `${name} (${amount}g)`,
+                    calories: totalCalories,
+                    timestamp: new Date()
+                });
+                document.getElementById('food-search').value = '';
+                document.getElementById('selected-food-name').value = '';
+                document.getElementById('selected-food-kcal').value = '';
+                document.getElementById('selected-food-display').innerText = "Ausgewählt: Keines";
+                loadDayData();
+            } catch (e) { console.error("Fehler:", e); }
+        });
+
+        const saveNutrition = async (mealDetails, calories) => {
+            try {
+                await addDoc(collection(db, "nutrition"), {
+                    date: dateInput.value,
+                    meal: mealDetails,
+                    calories: calories,
+                    timestamp: new Date()
+                });
+                loadDayData();
+            } catch (e) { console.error("Fehler:", e); }
+        };
+
+        document.getElementById('btn-quick-breakfast').addEventListener('click', () => saveNutrition("Frühstück: 2 Eier, Pumpernickel", 350));
+        document.getElementById('btn-quick-lunch').addEventListener('click', () => saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse", 550));
+
+        document.getElementById('btn-calc-tdee').addEventListener('click', () => {
+            const weight = Number(document.getElementById('calc-weight').value);
+            const height = Number(document.getElementById('calc-height').value);
+            const age = Number(document.getElementById('calc-age').value);
+
+            const bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+            currentTDEE = Math.round(bmr * 1.45);
+
+            document.getElementById('tdee-result').innerHTML = `Erhaltungsumsatz: <b>${currentTDEE} kcal</b>`;
+            loadDayData();
+        });
+
+        document.getElementById('btn-save-cardio').addEventListener('click', async () => {
+            const type = document.getElementById('cardio-type').value;
+            const distance = document.getElementById('cardio-distance').value;
+            const pace = document.getElementById('cardio-pace').value;
+            const duration = document.getElementById('cardio-duration').value;
+            const incline = document.getElementById('cardio-incline').value;
+            const level = document.getElementById('cardio-level').value;
+            
+            if(!distance && !duration) return alert("Bitte mindestens Distanz oder Dauer eingeben.");
+            
+            try {
+                await addDoc(collection(db, "workouts"), {
+                    date: dateInput.value,
+                    category: "cardio",
+                    type, distance, pace, duration, incline, level,
+                    timestamp: new Date()
+                });
+                document.getElementById('cardio-distance').value = '';
+                document.getElementById('cardio-pace').value = '';
+                document.getElementById('cardio-duration').value = '';
+                document.getElementById('cardio-incline').value = '';
+                document.getElementById('cardio-level').value = '';
+                loadDayData();
+            } catch (e) { console.error("Fehler:", e); }
+        });
+
+        let currentSets = [];
+        const exerciseSelect = document.getElementById('strength-exercise');
+        const exerciseCustom = document.getElementById('strength-exercise-custom');
+        
+        exerciseSelect.addEventListener('change', () => {
+            exerciseCustom.style.display = exerciseSelect.value === 'custom' ? 'block' : 'none';
+        });
+
+        document.getElementById('btn-add-set').addEventListener('click', () => {
+            const reps = document.getElementById('strength-reps').value;
+            const weight = document.getElementById('strength-weight').value;
+            if(!reps || !weight) return alert("Bitte Wdh. und Gewicht eingeben.");
+            currentSets.push({ reps: Number(reps), weight: Number(weight) });
+            renderTempSets();
+            document.getElementById('strength-reps').value = '';
+        });
+
+        function renderTempSets() {
+            const list = document.getElementById('temp-sets-list');
+            list.innerHTML = currentSets.length === 0 ? "" : currentSets.map((s, i) => `<li>Satz ${i+1}: <b>${s.reps}x</b> mit <b>${s.weight}kg</b></li>`).join('');
+        }
+
+        document.getElementById('btn-save-strength').addEventListener('click', async () => {
+            let exercise = exerciseSelect.value;
+            if (exercise === 'custom') {
+                exercise = exerciseCustom.value;
+                if (!exercise) return alert("Bitte eine benutzerdefinierte Übung eingeben.");
+            }
+            
+            let gym = gymSelect.value;
+            if (gym === 'custom') {
+                gym = gymCustom.value.trim();
+                if (!gym) return alert("Bitte ein benutzerdefiniertes Fitnessstudio eingeben.");
+            }
+            
+            if (currentSets.length === 0) return alert("Bitte füge über den grauen Button '+ Satz hinzufügen' mindestens einen Satz hinzu.");
+            
+            try {
+                await addDoc(collection(db, "workouts"), {
+                    date: dateInput.value,
+                    category: "strength",
+                    exercise, gym,
+                    sets: currentSets,
+                    timestamp: new Date()
+                });
+                
+                currentSets = [];
+                renderTempSets();
+                document.getElementById('strength-reps').value = ''; 
+                if (exerciseSelect.value === 'custom') {
+                    exerciseCustom.value = '';
+                    exerciseCustom.style.display = 'none';
+                    exerciseSelect.selectedIndex = 0;
+                }
+                loadDayData();
+            } catch (e) { console.error("Fehler:", e); }
+        });
+
+        async function loadDayData() {
+            const selectedDate = dateInput.value;
+            const workoutList = document.getElementById('workout-list');
+            const nutritionList = document.getElementById('nutrition-list');
+            const summaryBox = document.getElementById('daily-calories-summary');
+            
+            const qWorkouts = query(collection(db, "workouts"), where("date", "==", selectedDate));
+            const workoutSnap = await getDocs(qWorkouts);
+            let workoutsHtml = '';
+            
+            workoutSnap.forEach((docSnap) => {
+                const data = docSnap.data();
+                const id = docSnap.id;
+                
+                if (data.category === "cardio") {
+                    let details = [];
+                    if (data.distance) details.push(`${data.distance} km`);
+                    if (data.pace) details.push(`Pace: ${data.pace} min/km`);
+                    if (data.duration) details.push(`Dauer: ${data.duration}`);
+                    if (data.incline) details.push(`Neigung: ${data.incline}`);
+                    if (data.level) details.push(`Stufe: ${data.level}`);
+
+                    workoutsHtml += `<div class="history-item">
+                        <div class="action-btns"><button class="icon-btn btn-delete" data-id="${id}" data-col="workouts">🗑️</button></div>
+                        <div class="history-item-title">🏃 ${data.type}</div>
+                        <div class="history-item-details">${details.join(' | ')}</div>
+                    </div>`;
+                } else if (data.category === "strength") {
+                    const gymText = data.gym ? `📍 ${data.gym}<br>` : "";
+                    let setsDisplay = Array.isArray(data.sets) ? data.sets.map(s => `<b>${s.reps}x</b> ${s.weight}kg`).join(' | ') : `${data.sets} Sätze × ${data.reps} Wdh. mit ${data.weight} kg`;
+                    let setsStrForEdit = Array.isArray(data.sets) ? data.sets.map(s => `${s.reps}x${s.weight}`).join(', ') : "";
+
+                    workoutsHtml += `<div class="history-item">
+                        <div class="action-btns">
+                            <button class="icon-btn btn-edit" data-id="${id}" data-col="workouts" data-cat="strength" data-setsstr="${setsStrForEdit}">✏️</button>
+                            <button class="icon-btn btn-delete" data-id="${id}" data-col="workouts">🗑️</button>
+                        </div>
+                        <div class="history-item-title">💪 ${data.exercise}</div>
+                        <div class="history-item-details">${gymText}${setsDisplay}</div>
+                    </div>`;
+                }
+            });
+            workoutList.innerHTML = workoutsHtml || '<div class="history-item-details">Kein Training für dieses Datum.</div>';
+
+            const qNutrition = query(collection(db, "nutrition"), where("date", "==", selectedDate));
+            const nutritionSnap = await getDocs(qNutrition);
+            let nutritionHtml = '';
+            let totalCals = 0;
+            
+            nutritionSnap.forEach((docSnap) => {
+                const data = docSnap.data();
+                const id = docSnap.id;
+                const cals = data.calories || 0;
+                totalCals += cals;
+
+                nutritionHtml += `<div class="history-item">
+                    <div class="action-btns">
+                        <button class="icon-btn btn-edit" data-id="${id}" data-col="nutrition" data-meal="${data.meal}">✏️</button>
+                        <button class="icon-btn btn-delete" data-id="${id}" data-col="nutrition">🗑️</button>
+                    </div>
+                    <div class="history-item-title">🍽️ ${data.meal}</div>
+                    <div class="history-item-details">🔥 ${cals} kcal</div>
+                </div>`;
+            });
+            nutritionList.innerHTML = nutritionHtml || '<div class="history-item-details">Keine Mahlzeiten für dieses Datum.</div>';
+
+            const diff = totalCals - currentTDEE;
+            let diffText = "";
+            let colorStyle = "";
+
+            if (diff === 0) {
+                diffText = "Genau im Bedarf (Erhaltung)";
+                colorStyle = "color: var(--text-primary);";
+            } else if (diff < 0) {
+                diffText = `🟢 Defizit: <b>${Math.abs(diff)} kcal</b> unter Bedarf`;
+                colorStyle = "color: var(--success-color);";
+            } else {
+                diffText = `🔴 Überschuss: <b>${diff} kcal</b> über Bedarf`;
+                colorStyle = "color: var(--danger-color);";
+            }
+
+            summaryBox.innerHTML = `Aufgenommen: <b>${totalCals} kcal</b> | Zielbedarf: <b>${currentTDEE} kcal</b><br><span style="${colorStyle}">${diffText}</span>`;
+        }
+
+        async function loadArchiveData() {
+            const archiveList = document.getElementById('archive-list');
+            const selectedGymFilter = document.getElementById('archive-gym-filter').value;
+            archiveList.innerHTML = "Lade Daten...";
+
+            const qWorkouts = query(collection(db, "workouts"));
+            const qNutrition = query(collection(db, "nutrition"));
+            
+            const [wSnap, nSnap] = await Promise.all([getDocs(qWorkouts), getDocs(qNutrition)]);
+            const grouped = {};
+
+            wSnap.forEach(docSnap => {
+                const data = docSnap.data();
+                if (selectedGymFilter !== "ALL" && data.gym !== selectedGymFilter) return;
+                if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], gym: "" };
+                grouped[data.date].workouts.push(data);
+                if (data.gym) grouped[data.date].gym = data.gym;
+            });
+
+            nSnap.forEach(docSnap => {
+                const data = docSnap.data();
+                if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], gym: "" };
+                grouped[data.date].nutrition.push(data);
+            });
+
+            const allWorkoutsList = [];
+            wSnap.forEach(docSnap => allWorkoutsList.push(docSnap.data()));
+            allWorkoutsList.sort((a, b) => {
+                const timeA = a.timestamp?.seconds || new Date(a.date).getTime();
+                const timeB = b.timestamp?.seconds || new Date(b.date).getTime();
+                return timeA - timeB;
+            });
+
+            function getPreviousPerformance(currentExercise, currentDate, currentGym) {
+                let prevMatch = null;
+                for (let w of allWorkoutsList) {
+                    const wTime = w.timestamp?.seconds || new Date(w.date).getTime();
+                    const curTime = new Date(currentDate).getTime();
+                    if (w.category === "strength" && w.exercise === currentExercise && w.gym === currentGym && wTime < curTime) {
+                        prevMatch = w;
+                    }
+                }
+                return prevMatch;
+            }
+
+            const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+            let html = "";
+
+            sortedDates.forEach(date => {
+                const dayData = grouped[date];
+                if (selectedGymFilter !== "ALL" && dayData.workouts.length === 0) return;
+
+                const gymTitle = dayData.gym ? ` - ${dayData.gym}` : "";
+                const dateObj = new Date(date);
+                const dateString = dateObj.toLocaleDateString('de-DE');
+
+                html += `<details>
+                    <summary>📅 ${dateString}${gymTitle}</summary>
+                    <div class="details-content">`;
+                
+                if (dayData.workouts.length > 0) {
+                    html += `<b>Workouts:</b>`;
+                    dayData.workouts.forEach(data => {
+                        if (data.category === "cardio") {
+                            let details = [];
+                            if (data.distance) details.push(`${data.distance}km`);
+                            if (data.pace) details.push(`${data.pace} min/km`);
+                            if (data.duration) details.push(data.duration);
+                            html += `<div class="history-item-details">🏃 <b>${data.type}:</b> ${details.join(' | ')}</div>`;
+                        } else if (data.category === "strength") {
+                            let setsText = "";
+                            let comparisonIcon = "";
+
+                            if (Array.isArray(data.sets)) {
+                                setsText = data.sets.map(s => `${s.reps}x${s.weight}kg`).join(' | ');
+                                
+                                const prev = getPreviousPerformance(data.exercise, data.date, data.gym);
+                                if (prev && Array.isArray(prev.sets) && prev.sets.length === data.sets.length) {
+                                    let improved = false;
+                                    let worsened = false;
+                                    
+                                    for (let i = 0; i < data.sets.length; i++) {
+                                        const curS = data.sets[i];
+                                        const prevS = prev.sets[i];
+                                        if (curS.weight > prevS.weight || (curS.weight === prevS.weight && curS.reps > prevS.reps)) {
+                                            improved = true;
+                                        } else if (curS.weight < prevS.weight || (curS.weight === prevS.weight && curS.reps < prevS.reps)) {
+                                            worsened = true;
+                                        }
+                                    }
+
+                                    if (improved && !worsened) {
+                                        comparisonIcon = ` <span style="color:var(--success-color); font-weight:bold;" title="Verbessert zum Vormonat/letzten Mal">▲</span>`;
+                                    } else if (worsened && !improved) {
+                                        comparisonIcon = ` <span style="color:var(--danger-color); font-weight:bold;" title="Leistungsabfall zum letzten Mal">▼</span>`;
+                                    }
+                                }
+                            } else {
+                                setsText = `${data.sets} Sätze x ${data.reps} Wdh @ ${data.weight}kg`;
+                            }
+
+                            html += `<div class="history-item-details">💪 <b>${data.exercise}:</b> ${setsText}${comparisonIcon}</div>`;
+                        }
+                    });
+                }
+
+                if (dayData.nutrition.length > 0) {
+                    html += `<br><b>Ernährung:</b>`;
+                    let dayCals = 0;
+                    dayData.nutrition.forEach(data => {
+                        dayCals += (data.calories || 0);
+                        html += `<div class="history-item-details">🍽️ ${data.meal} (${data.calories || 0} kcal)</div>`;
+                    });
+
+                    const diff = dayCals - currentTDEE;
+                    let diffBadge = diff <= 0 ? `<span style="color:var(--success-color);">Defizit (${Math.abs(diff)} kcal)</span>` : `<span style="color:var(--danger-color);">Überschuss (+${diff} kcal)</span>`;
+
+                    html += `<div class="history-item-details" style="margin-top:0.25rem; border-top: 1px solid var(--border-color); padding-top:0.25rem;">
+                        Gesamt: <b>${dayCals} kcal</b> | ${diffBadge}
+                    </div>`;
+                }
+
+                html += `</div></details>`;
+            });
+
+            archiveList.innerHTML = html || "Keine Historie für diesen Filter vorhanden.";
+        }
+
+        document.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('btn-delete')) {
+                const id = e.target.dataset.id;
+                const col = e.target.dataset.col;
+                if (confirm("Eintrag wirklich löschen?")) {
+                    await deleteDoc(doc(db, col, id));
+                    loadDayData(); 
+                    if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
+                }
+            }
+
+            if (e.target.classList.contains('btn-edit')) {
+                const id = e.target.dataset.id;
+                const col = e.target.dataset.col;
+                const docRef = doc(db, col, id);
+
+                if (col === "nutrition") {
+                    const oldMeal = e.target.dataset.meal;
+                    const newMeal = prompt("Mahlzeit bearbeiten:", oldMeal);
+                    if (newMeal !== null && newMeal !== "") {
+                        await updateDoc(docRef, { meal: newMeal });
+                        loadDayData();
+                    }
+                } else if (col === "workouts") {
+                    const currentSetsStr = e.target.dataset.setsstr;
+                    const newSetsStr = prompt("Sätze bearbeiten (Format: WdhxGewicht, z.B. 12x50, 9x55):", currentSetsStr);
+                    if (newSetsStr) {
+                        try {
+                            const newSetsArr = newSetsStr.split(',').map(s => {
+                                const parts = s.trim().split('x');
+                                return { reps: Number(parts[0]), weight: Number(parts[1] || 0) };
+                            });
+                            await updateDoc(docRef, { sets: newSetsArr });
+                            loadDayData();
+                            if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
+                        } catch(err) {
+                            alert("Fehler beim Format. Bitte so eingeben: 12x50, 9x55");
+                        }
+                    }
+                }
+            }
+        });
+
+        loadDayData();
+    </script>
+</body>
+</html>
