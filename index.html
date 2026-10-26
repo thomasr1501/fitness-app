@@ -285,7 +285,7 @@
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 4.0 - Sets Update</div>
+        <div class="version-badge">Version 4.1 - Cardio Update</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -302,37 +302,52 @@
 
         <!-- Training View -->
         <div class="view active" id="view-training">
+            <!-- AKTUALISIERTES CARDIO MODUL -->
             <div class="card">
-                <h2>Cardio (Laufen)</h2>
+                <h2>Cardio</h2>
                 <div class="form-group">
                     <label for="cardio-type">Sportart</label>
                     <select id="cardio-type">
-                        <option value="running">Laufen</option>
+                        <option value="Laufen">Laufen</option>
+                        <option value="Laufband">Laufband</option>
+                        <option value="Stairmaster">Stairmaster</option>
+                        <option value="Fahrrad">Fahrrad</option>
                     </select>
                 </div>
                 <div class="row">
                     <div class="form-group">
                         <label for="cardio-distance">Distanz (km)</label>
-                        <input type="number" id="cardio-distance" value="4" step="0.1">
+                        <input type="number" id="cardio-distance" placeholder="z.B. 4" step="0.1">
                     </div>
                     <div class="form-group">
                         <label for="cardio-pace">Pace (min/km)</label>
-                        <input type="text" id="cardio-pace" value="6:00" placeholder="6:00">
+                        <input type="text" id="cardio-pace" placeholder="z.B. 6:00">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label for="cardio-duration">Dauer</label>
+                        <input type="text" id="cardio-duration" placeholder="z.B. 20 min">
+                    </div>
+                    <div class="form-group">
+                        <label for="cardio-incline">Neigung</label>
+                        <input type="text" id="cardio-incline" placeholder="z.B. 5%">
+                    </div>
+                    <div class="form-group">
+                        <label for="cardio-level">Stufe</label>
+                        <input type="text" id="cardio-level" placeholder="z.B. Level 8">
                     </div>
                 </div>
                 <button class="btn" id="btn-save-cardio">Cardio speichern</button>
             </div>
 
-            <!-- NEUES WORKOUT MODUL -->
+            <!-- WORKOUT MODUL -->
             <div class="card">
                 <h2>Workout</h2>
-                
-                <!-- Session Kopf (bleibt nach Speichern erhalten) -->
                 <div class="form-group">
                     <label for="strength-gym">Fitnessstudio (Optional)</label>
                     <input type="text" id="strength-gym" placeholder="z.B. CleverFit">
                 </div>
-                
                 <div class="form-group">
                     <label for="strength-exercise">Übung</label>
                     <select id="strength-exercise">
@@ -349,7 +364,6 @@
                     </select>
                     <input type="text" id="strength-exercise-custom" placeholder="Eigene Übung eingeben" style="display:none; margin-top:0.5rem;">
                 </div>
-                
                 <div class="row">
                     <div class="form-group">
                         <label for="strength-reps">Wdh.</label>
@@ -360,16 +374,10 @@
                         <input type="number" id="strength-weight" placeholder="50">
                     </div>
                 </div>
-                
-                <!-- Satz hinzufügen -->
                 <button class="btn btn-secondary" id="btn-add-set">+ Satz hinzufügen</button>
-                
-                <!-- Temporäre Satzliste -->
                 <div id="temp-sets-container" style="margin-top: 1rem; margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-primary);">
                     <ul id="temp-sets-list"></ul>
                 </div>
-                
-                <!-- Cloud Save -->
                 <button class="btn" id="btn-save-strength">Übung & Sätze in Cloud speichern</button>
             </div>
 
@@ -470,26 +478,35 @@
             });
         });
         
-        // --- Cardio Speichern ---
+        // --- Cardio Speichern (Erweitert) ---
         document.getElementById('btn-save-cardio').addEventListener('click', async () => {
-            const type = document.getElementById('cardio-type').options[document.getElementById('cardio-type').selectedIndex].text;
+            const type = document.getElementById('cardio-type').value;
             const distance = document.getElementById('cardio-distance').value;
             const pace = document.getElementById('cardio-pace').value;
-            if(!distance || !pace) return alert("Bitte Distanz und Pace eingeben.");
+            const duration = document.getElementById('cardio-duration').value;
+            const incline = document.getElementById('cardio-incline').value;
+            const level = document.getElementById('cardio-level').value;
+            
+            if(!distance && !duration) return alert("Bitte mindestens Distanz oder Dauer eingeben.");
             
             try {
                 await addDoc(collection(db, "workouts"), {
                     date: dateInput.value,
                     category: "cardio",
-                    type, distance, pace,
+                    type, distance, pace, duration, incline, level,
                     timestamp: new Date()
                 });
+                // Inputs leeren
                 document.getElementById('cardio-distance').value = '';
+                document.getElementById('cardio-pace').value = '';
+                document.getElementById('cardio-duration').value = '';
+                document.getElementById('cardio-incline').value = '';
+                document.getElementById('cardio-level').value = '';
                 loadDayData();
             } catch (e) { console.error("Fehler:", e); }
         });
 
-        // --- Workout Logik (Neue Struktur) ---
+        // --- Workout Logik ---
         let currentSets = [];
         
         const exerciseSelect = document.getElementById('strength-exercise');
@@ -503,7 +520,6 @@
             }
         });
 
-        // Temporären Satz hinzufügen
         document.getElementById('btn-add-set').addEventListener('click', () => {
             const reps = document.getElementById('strength-reps').value;
             const weight = document.getElementById('strength-weight').value;
@@ -512,8 +528,6 @@
             
             currentSets.push({ reps: Number(reps), weight: Number(weight) });
             renderTempSets();
-            
-            // Eingabefeld für Wiederholungen für den nächsten Satz leeren (Gewicht bleibt meist gleich)
             document.getElementById('strength-reps').value = '';
         });
 
@@ -526,7 +540,6 @@
             }
         }
 
-        // Komplettes Paket in Firebase speichern
         document.getElementById('btn-save-strength').addEventListener('click', async () => {
             let exercise = exerciseSelect.value;
             if (exercise === 'custom') {
@@ -535,7 +548,6 @@
             }
             
             const gym = document.getElementById('strength-gym').value || ""; 
-            
             if (currentSets.length === 0) return alert("Bitte füge über den grauen Button '+ Satz hinzufügen' mindestens einen Satz hinzu.");
             
             try {
@@ -548,11 +560,9 @@
                     timestamp: new Date()
                 });
                 
-                // UI nach dem Speichern zurücksetzen (Gym bleibt erhalten!)
                 currentSets = [];
                 renderTempSets();
                 document.getElementById('strength-reps').value = ''; 
-                // Übung zurück auf Standard
                 if (exerciseSelect.value === 'custom') {
                     exerciseCustom.value = '';
                     exerciseCustom.style.display = 'none';
@@ -593,13 +603,19 @@
                 const id = docSnap.id;
                 
                 if (data.category === "cardio") {
+                    let details = [];
+                    if (data.distance) details.append ? details.push(`${data.distance} km`) : details.push(`${data.distance} km`);
+                    if (data.pace) details.push(`Pace: ${data.pace} min/km`);
+                    if (data.duration) details.push(`Dauer: ${data.duration}`);
+                    if (data.incline) details.push(`Neigung: ${data.incline}`);
+                    if (data.level) details.push(`Stufe: ${data.level}`);
+
                     workoutsHtml += `<div class="history-item">
                         <div class="action-btns">
-                            <button class="icon-btn btn-edit" data-id="${id}" data-col="workouts" data-cat="cardio" data-dist="${data.distance}" data-pace="${data.pace}">✏️</button>
                             <button class="icon-btn btn-delete" data-id="${id}" data-col="workouts">🗑️</button>
                         </div>
                         <div class="history-item-title">🏃 ${data.type}</div>
-                        <div class="history-item-details">${data.distance} km | Pace: ${data.pace} min/km</div>
+                        <div class="history-item-details">${details.join(' | ')}</div>
                     </div>`;
                 } else if (data.category === "strength") {
                     const gymText = data.gym ? `📍 ${data.gym}<br>` : "";
@@ -607,19 +623,17 @@
                     let isArray = false;
                     let setsStrForEdit = "";
                     
-                    // Unterscheidung zwischen alten und neuen (Array) Daten
                     if (Array.isArray(data.sets)) {
                         isArray = true;
                         setsDisplay = data.sets.map(s => `<b>${s.reps}x</b> ${s.weight}kg`).join(' | ');
                         setsStrForEdit = data.sets.map(s => `${s.reps}x${s.weight}`).join(', ');
                     } else {
-                        // Fallback für alte Einträge
                         setsDisplay = `${data.sets} Sätze × ${data.reps} Wdh. mit ${data.weight} kg`;
                     }
 
                     workoutsHtml += `<div class="history-item">
                         <div class="action-btns">
-                            <button class="icon-btn btn-edit" data-id="${id}" data-col="workouts" data-cat="strength" data-isarray="${isArray}" data-setsstr="${setsStrForEdit}" data-sets="${data.sets}" data-reps="${data.reps}" data-weight="${data.weight}">✏️</button>
+                            <button class="icon-btn btn-edit" data-id="${id}" data-col="workouts" data-cat="strength" data-isarray="${isArray}" data-setsstr="${setsStrForEdit}">✏️</button>
                             <button class="icon-btn btn-delete" data-id="${id}" data-col="workouts">🗑️</button>
                         </div>
                         <div class="history-item-title">💪 ${data.exercise}</div>
@@ -678,7 +692,13 @@
                 
                 grouped[date].items.forEach(data => {
                     if (data.category === "cardio") {
-                        html += `<div class="history-item-details">🏃 ${data.type}: ${data.distance}km (${data.pace} min/km)</div>`;
+                        let details = [];
+                        if (data.distance) details.push(`${data.distance}km`);
+                        if (data.pace) details.push(`${data.pace} min/km`);
+                        if (data.duration) details.push(data.duration);
+                        if (data.incline) details.push(`Neig: ${data.incline}`);
+                        if (data.level) details.push(data.level);
+                        html += `<div class="history-item-details">🏃 <b>${data.type}:</b> ${details.join(' | ')}</div>`;
                     } else if (data.category === "strength") {
                         let setsText = "";
                         if (Array.isArray(data.sets)) {
@@ -686,7 +706,7 @@
                         } else {
                             setsText = `${data.sets} Sätze x ${data.reps} Wdh @ ${data.weight}kg`;
                         }
-                        html += `<div class="history-item-details">💪 <b>${data.exercise}:</b><br>${setsText}</div><br>`;
+                        html += `<div class="history-item-details">💪 <b>${data.exercise}:</b> ${setsText}</div>`;
                     }
                 });
 
@@ -698,7 +718,6 @@
 
         // --- Event-Delegation Edit / Delete ---
         document.addEventListener('click', async (e) => {
-            // Löschen
             if (e.target.classList.contains('btn-delete')) {
                 const id = e.target.dataset.id;
                 const col = e.target.dataset.col;
@@ -710,7 +729,6 @@
                 }
             }
 
-            // Bearbeiten
             if (e.target.classList.contains('btn-edit')) {
                 const id = e.target.dataset.id;
                 const col = e.target.dataset.col;
@@ -725,44 +743,21 @@
                     }
                 } else if (col === "workouts") {
                     const cat = e.target.dataset.cat;
-                    if (cat === "cardio") {
-                        const newD = prompt("Neue Distanz (km):", e.target.dataset.dist);
-                        const newP = prompt("Neue Pace (min/km):", e.target.dataset.pace);
-                        if (newD && newP) {
-                            await updateDoc(docRef, { distance: newD, pace: newP });
-                            loadDayData();
-                            if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
-                        }
-                    } else if (cat === "strength") {
-                        const isArray = e.target.dataset.isarray === "true";
+                    if (cat === "strength") {
+                        const currentSetsStr = e.target.dataset.setsstr;
+                        const newSetsStr = prompt("Sätze bearbeiten.\nFormat: Wdh x Gewicht, getrennt mit Komma (z.B. 12x50, 9x55):", currentSetsStr);
                         
-                        if (isArray) {
-                            // Neue Methode für Arrays
-                            const currentSetsStr = e.target.dataset.setsstr;
-                            const newSetsStr = prompt("Sätze bearbeiten.\nFormat: Wdh x Gewicht, getrennt mit Komma (z.B. 12x50, 9x55):", currentSetsStr);
-                            
-                            if (newSetsStr) {
-                                try {
-                                    const newSetsArr = newSetsStr.split(',').map(s => {
-                                        const parts = s.trim().split('x');
-                                        return { reps: Number(parts[0]), weight: Number(parts[1] || 0) };
-                                    });
-                                    await updateDoc(docRef, { sets: newSetsArr });
-                                    loadDayData();
-                                    if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
-                                } catch(err) {
-                                    alert("Fehler beim Format. Bitte so eingeben: 12x50, 9x55");
-                                }
-                            }
-                        } else {
-                            // Fallback für deine alten Datenbank-Einträge
-                            const newW = prompt("Neues Gewicht (kg):", e.target.dataset.weight);
-                            const newR = prompt("Neue Wiederholungen:", e.target.dataset.reps);
-                            const newS = prompt("Neue Sätze:", e.target.dataset.sets);
-                            if (newW && newR && newS) {
-                                await updateDoc(docRef, { weight: newW, reps: newR, sets: newS });
+                        if (newSetsStr) {
+                            try {
+                                const newSetsArr = newSetsStr.split(',').map(s => {
+                                    const parts = s.trim().split('x');
+                                    return { reps: Number(parts[0]), weight: Number(parts[1] || 0) };
+                                });
+                                await updateDoc(docRef, { sets: newSetsArr });
                                 loadDayData();
                                 if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
+                            } catch(err) {
+                                alert("Fehler beim Format. Bitte so eingeben: 12x50, 9x55");
                             }
                         }
                     }
