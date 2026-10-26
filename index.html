@@ -14,6 +14,8 @@
             --border-radius: 8px;
             --input-bg: #2c2c2c;
             --border-color: #444;
+            --danger-color: #cf6679;
+            --edit-color: #bb86fc;
         }
 
         body {
@@ -31,6 +33,30 @@
             max-width: 500px;
         }
 
+        /* Datumsauswahl */
+        .global-date-container {
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: var(--surface-color);
+            padding: 0.75rem;
+            border-radius: var(--border-radius);
+        }
+
+        .global-date-container label {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .global-date-container input {
+            flex: 1;
+            margin: 0;
+        }
+
+        /* Tabs */
         .tabs {
             display: flex;
             gap: 0.5rem;
@@ -39,13 +65,13 @@
 
         .tab-btn {
             flex: 1;
-            padding: 0.75rem;
+            padding: 0.75rem 0.25rem;
             background-color: var(--surface-color);
             border: 1px solid var(--border-color);
             color: var(--text-primary);
             border-radius: var(--border-radius);
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 600;
             transition: background-color 0.2s;
         }
@@ -110,6 +136,7 @@
             font-size: 1rem;
             width: 100%;
             box-sizing: border-box;
+            color-scheme: dark;
         }
 
         input:focus, select:focus {
@@ -143,12 +170,7 @@
             background-color: #3d3d3d;
         }
 
-        .quick-logs {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
+        /* Listen & Historie */
         .history-list {
             display: flex;
             flex-direction: column;
@@ -160,6 +182,7 @@
             padding: 0.85rem;
             border-radius: var(--border-radius);
             border-left: 4px solid var(--primary-color);
+            position: relative;
         }
 
         .history-item-title {
@@ -167,6 +190,7 @@
             margin-bottom: 0.25rem;
             color: var(--text-primary);
             font-size: 1rem;
+            padding-right: 60px; /* Platz für Buttons */
         }
 
         .history-item-details {
@@ -174,14 +198,87 @@
             font-size: 0.85rem;
             line-height: 1.4;
         }
+
+        /* Edit & Delete Buttons */
+        .action-btns {
+            position: absolute;
+            top: 0.85rem;
+            right: 0.85rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 0;
+            opacity: 0.8;
+        }
+
+        .icon-btn:hover {
+            opacity: 1;
+        }
+
+        /* Archiv Ordner System (Akkordeon) */
+        details {
+            background-color: var(--surface-color);
+            border-radius: var(--border-radius);
+            margin-bottom: 0.75rem;
+            border: 1px solid var(--border-color);
+        }
+
+        summary {
+            padding: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        summary::-webkit-details-marker {
+            display: none;
+        }
+
+        summary::after {
+            content: "▼";
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        details[open] summary::after {
+            content: "▲";
+        }
+
+        details[open] {
+            padding-bottom: 1rem;
+        }
+
+        .details-content {
+            padding: 0 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
+
+        <!-- Globales Datum -->
+        <div class="global-date-container">
+            <label for="global-date">📅 Datum:</label>
+            <input type="date" id="global-date">
+        </div>
+
         <!-- Navigation -->
         <div class="tabs">
             <button class="tab-btn active" id="btn-tab-training">Training</button>
             <button class="tab-btn" id="btn-tab-nutrition">Ernährung</button>
+            <button class="tab-btn" id="btn-tab-archive">Archiv</button>
         </div>
 
         <!-- Training View -->
@@ -210,6 +307,10 @@
             <div class="card">
                 <h2>Ganzkörper-Workout</h2>
                 <div class="form-group">
+                    <label for="strength-gym">Fitnessstudio (Optional)</label>
+                    <input type="text" id="strength-gym" placeholder="z.B. CleverFit">
+                </div>
+                <div class="form-group">
                     <label for="strength-exercise">Übung</label>
                     <input type="text" id="strength-exercise" placeholder="z.B. Bankdrücken">
                 </div>
@@ -230,9 +331,9 @@
                 <button class="btn" id="btn-save-strength">Satz speichern</button>
             </div>
 
-            <!-- Historie Training -->
+            <!-- Historie Training (gewählter Tag) -->
             <div class="card">
-                <h2>Heutiges Training</h2>
+                <h2>Training am gewählten Tag</h2>
                 <div id="workout-list" class="history-list">
                     <!-- Daten werden dynamisch geladen -->
                 </div>
@@ -244,7 +345,7 @@
             <div class="card">
                 <h2>Lebensmittel tracken</h2>
                 <div class="form-group">
-                    <label for="food-search">Suchen (OpenFoodFacts API)</label>
+                    <label for="food-search">Suchen (Platzhalter)</label>
                     <input type="text" id="food-search" placeholder="z.B. Haferflocken">
                 </div>
                 <div class="form-group">
@@ -268,9 +369,19 @@
 
             <!-- Historie Ernährung -->
             <div class="card">
-                <h2>Heutige Ernährung</h2>
+                <h2>Ernährung am gewählten Tag</h2>
                 <div id="nutrition-list" class="history-list">
                     <!-- Daten werden dynamisch geladen -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Archiv View (Ordner System) -->
+        <div class="view" id="view-archive">
+            <div class="card">
+                <h2>Trainings-Historie (Alle)</h2>
+                <div id="archive-list">
+                    <!-- Akkordeons werden dynamisch geladen -->
                 </div>
             </div>
         </div>
@@ -279,44 +390,45 @@
     <!-- Firebase SDK & Logik -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+        // Importe um deleteDoc, updateDoc und doc erweitert
+        import { getFirestore, collection, addDoc, getDocs, query, where, deleteDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
-        // Deine persönliche Firebase-Konfiguration
+        // HIER DEINE WERTE EINTRAGEN
         const firebaseConfig = {
-            apiKey: "AIzaSyADXyu1B6sXNR0LdG-K75V3JpU9VFTfNGc",
-            authDomain: "fitnesstracker-b396d.firebaseapp.com",
-            projectId: "fitnesstracker-b396d",
-            storageBucket: "fitnesstracker-b396d.firebasestorage.app",
-            messagingSenderId: "609703629861",
-            appId: "1:609703629861:web:38ea62b6ef9e0b1f9e9bcc"
+            /* HIER DEINE FIREBASE WERTE EINTRAGEN (apiKey etc.) */
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // Datum Logik
+        const dateInput = document.getElementById('global-date');
         const getTodayString = () => new Date().toISOString().split('T')[0];
+        dateInput.value = getTodayString(); // Standardmäßig heute
+
+        dateInput.addEventListener('change', () => {
+            loadDayData(); // Lade Daten neu, wenn das Datum geändert wird
+        });
 
         // Navigation
-        const tabTraining = document.getElementById('btn-tab-training');
-        const tabNutrition = document.getElementById('btn-tab-nutrition');
-        const viewTraining = document.getElementById('view-training');
-        const viewNutrition = document.getElementById('view-nutrition');
+        const tabs = [
+            { btn: document.getElementById('btn-tab-training'), view: document.getElementById('view-training') },
+            { btn: document.getElementById('btn-tab-nutrition'), view: document.getElementById('view-nutrition') },
+            { btn: document.getElementById('btn-tab-archive'), view: document.getElementById('view-archive') }
+        ];
 
-        tabTraining.addEventListener('click', () => {
-            tabTraining.classList.add('active');
-            tabNutrition.classList.remove('active');
-            viewTraining.classList.add('active');
-            viewNutrition.classList.remove('active');
-        });
-
-        tabNutrition.addEventListener('click', () => {
-            tabNutrition.classList.add('active');
-            tabTraining.classList.remove('active');
-            viewNutrition.classList.add('active');
-            viewTraining.classList.remove('active');
+        tabs.forEach(tab => {
+            tab.btn.addEventListener('click', () => {
+                tabs.forEach(t => { t.btn.classList.remove('active'); t.view.classList.remove('active'); });
+                tab.btn.classList.add('active');
+                tab.view.classList.add('active');
+                
+                // Wenn Archiv-Tab geklickt wird, komplette Historie laden
+                if (tab.btn.id === 'btn-tab-archive') loadArchiveData();
+            });
         });
         
-        // Speichern-Logik
+        // Speichern-Logik (nutzt nun das Datum aus dateInput)
         document.getElementById('btn-save-cardio').addEventListener('click', async () => {
             const type = document.getElementById('cardio-type').options[document.getElementById('cardio-type').selectedIndex].text;
             const distance = document.getElementById('cardio-distance').value;
@@ -324,13 +436,13 @@
             
             try {
                 await addDoc(collection(db, "workouts"), {
-                    date: getTodayString(),
+                    date: dateInput.value,
                     category: "cardio",
                     type, distance, pace,
                     timestamp: new Date()
                 });
                 document.getElementById('cardio-distance').value = '';
-                loadTodayData(); // Live-Update
+                loadDayData();
             } catch (e) { console.error("Fehler:", e); }
         });
 
@@ -339,89 +451,187 @@
             const sets = document.getElementById('strength-sets').value;
             const reps = document.getElementById('strength-reps').value;
             const weight = document.getElementById('strength-weight').value;
+            const gym = document.getElementById('strength-gym').value || ""; // Gym Standort
             
             try {
                 await addDoc(collection(db, "workouts"), {
-                    date: getTodayString(),
+                    date: dateInput.value,
                     category: "strength",
-                    exercise, sets, reps, weight,
+                    exercise, sets, reps, weight, gym,
                     timestamp: new Date()
                 });
                 document.getElementById('strength-reps').value = ''; 
-                loadTodayData(); // Live-Update
+                loadDayData();
             } catch (e) { console.error("Fehler:", e); }
         });
 
         const saveNutrition = async (mealDetails) => {
             try {
                 await addDoc(collection(db, "nutrition"), {
-                    date: getTodayString(),
+                    date: dateInput.value,
                     meal: mealDetails,
                     timestamp: new Date()
                 });
-                loadTodayData(); // Live-Update
+                loadDayData();
             } catch (e) { console.error("Fehler:", e); }
         };
 
-        document.getElementById('btn-quick-breakfast').addEventListener('click', () => {
-            saveNutrition("Frühstück: 2 Eier, Pumpernickel");
-        });
+        document.getElementById('btn-quick-breakfast').addEventListener('click', () => saveNutrition("Frühstück: 2 Eier, Pumpernickel"));
+        document.getElementById('btn-quick-lunch').addEventListener('click', () => saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse"));
 
-        document.getElementById('btn-quick-lunch').addEventListener('click', () => {
-            saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse");
-        });
-
-        // Lade- und Render-Logik
-        async function loadTodayData() {
-            const today = getTodayString();
+        // Lade- und Render-Logik für den gewählten Tag
+        async function loadDayData() {
+            const selectedDate = dateInput.value;
             const workoutList = document.getElementById('workout-list');
             const nutritionList = document.getElementById('nutrition-list');
             
             // Workouts laden
-            const qWorkouts = query(collection(db, "workouts"), where("date", "==", today));
+            const qWorkouts = query(collection(db, "workouts"), where("date", "==", selectedDate));
             const workoutSnap = await getDocs(qWorkouts);
-            
             let workoutsHtml = '';
-            // Umwandeln in Array zum Sortieren nach Timestamp im Browser
-            let workoutsArray = [];
-            workoutSnap.forEach((doc) => workoutsArray.push(doc.data()));
-            workoutsArray.sort((a, b) => b.timestamp - a.timestamp);
-
-            workoutsArray.forEach((data) => {
+            
+            workoutSnap.forEach((docSnap) => {
+                const data = docSnap.data();
+                const id = docSnap.id;
+                
                 if (data.category === "cardio") {
                     workoutsHtml += `<div class="history-item">
+                        <div class="action-btns">
+                            <button class="icon-btn btn-edit" data-id="${id}" data-col="workouts" data-cat="cardio" data-dist="${data.distance}" data-pace="${data.pace}">✏️</button>
+                            <button class="icon-btn btn-delete" data-id="${id}" data-col="workouts">🗑️</button>
+                        </div>
                         <div class="history-item-title">🏃 ${data.type}</div>
                         <div class="history-item-details">${data.distance} km | Pace: ${data.pace} min/km</div>
                     </div>`;
                 } else if (data.category === "strength") {
+                    const gymText = data.gym ? `📍 ${data.gym} | ` : "";
                     workoutsHtml += `<div class="history-item">
+                        <div class="action-btns">
+                            <button class="icon-btn btn-edit" data-id="${id}" data-col="workouts" data-cat="strength" data-sets="${data.sets}" data-reps="${data.reps}" data-weight="${data.weight}">✏️</button>
+                            <button class="icon-btn btn-delete" data-id="${id}" data-col="workouts">🗑️</button>
+                        </div>
                         <div class="history-item-title">💪 ${data.exercise}</div>
-                        <div class="history-item-details">${data.sets} Sätze × ${data.reps} Wdh. mit ${data.weight} kg</div>
+                        <div class="history-item-details">${gymText}${data.sets} Sätze × ${data.reps} Wdh. mit ${data.weight} kg</div>
                     </div>`;
                 }
             });
-            workoutList.innerHTML = workoutsHtml || '<div class="history-item-details">Noch kein Training heute eingetragen.</div>';
+            workoutList.innerHTML = workoutsHtml || '<div class="history-item-details">Kein Training für dieses Datum.</div>';
 
             // Ernährung laden
-            const qNutrition = query(collection(db, "nutrition"), where("date", "==", today));
+            const qNutrition = query(collection(db, "nutrition"), where("date", "==", selectedDate));
             const nutritionSnap = await getDocs(qNutrition);
-            
             let nutritionHtml = '';
-            let nutritionArray = [];
-            nutritionSnap.forEach((doc) => nutritionArray.push(doc.data()));
-            nutritionArray.sort((a, b) => b.timestamp - a.timestamp);
-
-            nutritionArray.forEach((data) => {
+            
+            nutritionSnap.forEach((docSnap) => {
+                const data = docSnap.data();
+                const id = docSnap.id;
                 nutritionHtml += `<div class="history-item">
+                    <div class="action-btns">
+                        <button class="icon-btn btn-edit" data-id="${id}" data-col="nutrition" data-meal="${data.meal}">✏️</button>
+                        <button class="icon-btn btn-delete" data-id="${id}" data-col="nutrition">🗑️</button>
+                    </div>
                     <div class="history-item-title">🍽️ Mahlzeit</div>
                     <div class="history-item-details">${data.meal}</div>
                 </div>`;
             });
-            nutritionList.innerHTML = nutritionHtml || '<div class="history-item-details">Noch keine Mahlzeiten heute eingetragen.</div>';
+            nutritionList.innerHTML = nutritionHtml || '<div class="history-item-details">Keine Mahlzeiten für dieses Datum.</div>';
         }
 
+        // Lade- und Gruppierungs-Logik für das Archiv
+        async function loadArchiveData() {
+            const archiveList = document.getElementById('archive-list');
+            archiveList.innerHTML = "Lade Daten...";
+
+            const qWorkouts = query(collection(db, "workouts"));
+            const snap = await getDocs(qWorkouts);
+            
+            const grouped = {};
+            snap.forEach(docSnap => {
+                const data = docSnap.data();
+                if (!grouped[data.date]) grouped[data.date] = { items: [], gym: "" };
+                grouped[data.date].items.push(data);
+                if (data.gym) grouped[data.date].gym = data.gym; // Gym-Name für den Ordner-Titel merken
+            });
+
+            // Nach Datum absteigend sortieren (neueste zuerst)
+            const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+            
+            let html = "";
+            sortedDates.forEach(date => {
+                const gymTitle = grouped[date].gym ? ` - ${grouped[date].gym}` : "";
+                
+                // Formatiere Datum von YYYY-MM-DD zu DD.MM.YYYY
+                const dateObj = new Date(date);
+                const dateString = dateObj.toLocaleDateString('de-DE');
+
+                html += `<details>
+                    <summary>📅 ${dateString}${gymTitle}</summary>
+                    <div class="details-content">`;
+                
+                grouped[date].items.forEach(data => {
+                    if (data.category === "cardio") {
+                        html += `<div class="history-item-details">🏃 ${data.type}: ${data.distance}km (${data.pace} min/km)</div>`;
+                    } else if (data.category === "strength") {
+                        html += `<div class="history-item-details">💪 ${data.exercise}: ${data.sets}x${data.reps} @ ${data.weight}kg</div>`;
+                    }
+                });
+
+                html += `</div></details>`;
+            });
+
+            archiveList.innerHTML = html || "Keine Historie vorhanden.";
+        }
+
+        // Event-Delegation für Edit und Delete (fängt Klicks auf die kleinen Buttons ab)
+        document.addEventListener('click', async (e) => {
+            // LÖSCHEN
+            if (e.target.classList.contains('btn-delete')) {
+                const id = e.target.dataset.id;
+                const col = e.target.dataset.col;
+                
+                if (confirm("Eintrag wirklich löschen?")) {
+                    await deleteDoc(doc(db, col, id));
+                    loadDayData(); 
+                }
+            }
+
+            // BEARBEITEN
+            if (e.target.classList.contains('btn-edit')) {
+                const id = e.target.dataset.id;
+                const col = e.target.dataset.col;
+                const docRef = doc(db, col, id);
+
+                if (col === "nutrition") {
+                    const oldMeal = e.target.dataset.meal;
+                    const newMeal = prompt("Mahlzeit bearbeiten:", oldMeal);
+                    if (newMeal !== null && newMeal !== "") {
+                        await updateDoc(docRef, { meal: newMeal });
+                        loadDayData();
+                    }
+                } else if (col === "workouts") {
+                    const cat = e.target.dataset.cat;
+                    if (cat === "cardio") {
+                        const newD = prompt("Neue Distanz (km):", e.target.dataset.dist);
+                        const newP = prompt("Neue Pace (min/km):", e.target.dataset.pace);
+                        if (newD && newP) {
+                            await updateDoc(docRef, { distance: newD, pace: newP });
+                            loadDayData();
+                        }
+                    } else if (cat === "strength") {
+                        const newW = prompt("Neues Gewicht (kg):", e.target.dataset.weight);
+                        const newR = prompt("Neue Wiederholungen:", e.target.dataset.reps);
+                        const newS = prompt("Neue Sätze:", e.target.dataset.sets);
+                        if (newW && newR && newS) {
+                            await updateDoc(docRef, { weight: newW, reps: newR, sets: newS });
+                            loadDayData();
+                        }
+                    }
+                }
+            }
+        });
+
         // Init beim Start
-        loadTodayData();
+        loadDayData();
     </script>
 </body>
 </html>
