@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fitness & Ernährungs-Tracker</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --primary-color: #03dac6;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --border-radius: 8px;
+            --input-bg: #2c2c2c;
+            --border-color: #444;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.75rem;
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary-color);
+            color: #000;
+            border-color: var(--primary-color);
+        }
+
+        .view {
+            display: none;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            padding: 1.25rem;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        h2, h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+            color: var(--primary-color);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+
+        .row {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .row .form-group {
+            flex: 1;
+        }
+
+        label {
+            margin-bottom: 0.4rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        input, select {
+            padding: 0.75rem;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.8rem;
+            background-color: var(--primary-color);
+            color: #000;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+
+        .btn-secondary {
+            background-color: var(--input-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            text-align: left;
+            font-size: 0.9rem;
+            font-weight: normal;
+        }
+
+        .btn-secondary:active {
+            background-color: #3d3d3d;
+        }
+
+        .quick-logs {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navigation -->
+        <div class="tabs">
+            <button class="tab-btn active" id="btn-tab-training">Training</button>
+            <button class="tab-btn" id="btn-tab-nutrition">Ernährung</button>
+        </div>
+
+        <!-- Training View -->
+        <div class="view active" id="view-training">
+            <div class="card">
+                <h2>Cardio (Laufen)</h2>
+                <div class="form-group">
+                    <label for="cardio-type">Sportart</label>
+                    <select id="cardio-type">
+                        <option value="running">Laufen</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label for="cardio-distance">Distanz (km)</label>
+                        <input type="number" id="cardio-distance" value="4" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="cardio-pace">Pace (min/km)</label>
+                        <input type="text" id="cardio-pace" value="6:00" placeholder="6:00">
+                    </div>
+                </div>
+                <button class="btn" id="btn-save-cardio">Cardio speichern</button>
+            </div>
+
+            <div class="card">
+                <h2>Ganzkörper-Workout</h2>
+                <div class="form-group">
+                    <label for="strength-exercise">Übung</label>
+                    <input type="text" id="strength-exercise" placeholder="z.B. Bankdrücken">
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label for="strength-sets">Sätze</label>
+                        <input type="number" id="strength-sets" placeholder="3">
+                    </div>
+                    <div class="form-group">
+                        <label for="strength-reps">Wdh.</label>
+                        <input type="number" id="strength-reps" placeholder="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="strength-weight">Gewicht (kg)</label>
+                        <input type="number" id="strength-weight" placeholder="50">
+                    </div>
+                </div>
+                <button class="btn" id="btn-save-strength">Satz speichern</button>
+            </div>
+        </div>
+
+        <!-- Nutrition View -->
+        <div class="view" id="view-nutrition">
+            <div class="card">
+                <h2>Lebensmittel tracken</h2>
+                <div class="form-group">
+                    <label for="food-search">Suchen (OpenFoodFacts API)</label>
+                    <input type="text" id="food-search" placeholder="z.B. Haferflocken">
+                </div>
+                <div class="form-group">
+                    <label for="food-amount">Menge (g)</label>
+                    <input type="number" id="food-amount" placeholder="100">
+                </div>
+                <button class="btn" id="btn-search-food">Suchen & Eintragen</button>
+            </div>
+
+            <div class="card">
+                <h2>Schnell-Log (One-Click)</h2>
+                <div class="quick-logs">
+                    <button class="btn btn-secondary" id="btn-quick-breakfast">
+                        + Frühstück: 2 Eier, Pumpernickel
+                    </button>
+                    <button class="btn btn-secondary" id="btn-quick-lunch">
+                        + Mittag: Milbona Quarkcreme, Müsli, Nüsse
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK & Logik -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+
+        // HIER DEINE WERTE EINTRAGEN
+        const firebaseConfig = {
+            apiKey: "AIzaSyADXyu1B6sXNR0LdG-K75V3JpU9VFTfNGc",
+ 		 authDomain: "fitnesstracker-b396d.firebaseapp.com",
+  		projectId: "fitnesstracker-b396d",
+  		storageBucket: "fitnesstracker-b396d.firebasestorage.app",
+ 		messagingSenderId: "609703629861",
+ 		appId: "1:609703629861:web:38ea62b6ef9e0b1f9e9bcc"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const getTodayString = () => new Date().toISOString().split('T')[0];
+
+        const tabTraining = document.getElementById('btn-tab-training');
+        const tabNutrition = document.getElementById('btn-tab-nutrition');
+        const viewTraining = document.getElementById('view-training');
+        const viewNutrition = document.getElementById('view-nutrition');
+
+        tabTraining.addEventListener('click', () => {
+            tabTraining.classList.add('active');
+            tabNutrition.classList.remove('active');
+            viewTraining.classList.add('active');
+            viewNutrition.classList.remove('active');
+        });
+
+        tabNutrition.addEventListener('click', () => {
+            tabNutrition.classList.add('active');
+            tabTraining.classList.remove('active');
+            viewNutrition.classList.add('active');
+            viewTraining.classList.remove('active');
+        });
+        
+        document.getElementById('btn-save-cardio').addEventListener('click', async () => {
+            const type = document.getElementById('cardio-type').value;
+            const distance = document.getElementById('cardio-distance').value;
+            const pace = document.getElementById('cardio-pace').value;
+            
+            try {
+                await addDoc(collection(db, "workouts"), {
+                    date: getTodayString(),
+                    category: "cardio",
+                    type, distance, pace,
+                    timestamp: new Date()
+                });
+                alert("Cardio-Einheit gespeichert!");
+            } catch (e) {
+                console.error("Fehler beim Speichern:", e);
+            }
+        });
+
+        document.getElementById('btn-save-strength').addEventListener('click', async () => {
+            const exercise = document.getElementById('strength-exercise').value;
+            const sets = document.getElementById('strength-sets').value;
+            const reps = document.getElementById('strength-reps').value;
+            const weight = document.getElementById('strength-weight').value;
+            
+            try {
+                await addDoc(collection(db, "workouts"), {
+                    date: getTodayString(),
+                    category: "strength",
+                    exercise, sets, reps, weight,
+                    timestamp: new Date()
+                });
+                alert("Satz gespeichert!");
+                document.getElementById('strength-reps').value = ''; 
+            } catch (e) {
+                console.error("Fehler beim Speichern:", e);
+            }
+        });
+
+        const saveNutrition = async (mealDetails) => {
+            try {
+                await addDoc(collection(db, "nutrition"), {
+                    date: getTodayString(),
+                    meal: mealDetails,
+                    timestamp: new Date()
+                });
+                alert("Mahlzeit gespeichert!");
+            } catch (e) {
+                console.error("Fehler beim Speichern:", e);
+            }
+        };
+
+        document.getElementById('btn-quick-breakfast').addEventListener('click', () => {
+            saveNutrition("Frühstück: 2 Eier, Pumpernickel, Omega-3 Supplement");
+        });
+
+        document.getElementById('btn-quick-lunch').addEventListener('click', () => {
+            saveNutrition("Mittagessen: Milbona Quarkcreme, zuckerreduziertes Müsli, Walnüsse, Cashews, Chiasamen, Leinsamen");
+        });
+
+        async function loadTodayData() {
+            const today = getTodayString();
+            
+            const qWorkouts = query(collection(db, "workouts"), where("date", "==", today));
+            const workoutSnap = await getDocs(qWorkouts);
+            workoutSnap.forEach((doc) => {
+                console.log("Heutiges Workout geladen:", doc.data());
+            });
+
+            const qNutrition = query(collection(db, "nutrition"), where("date", "==", today));
+            const nutritionSnap = await getDocs(qNutrition);
+            nutritionSnap.forEach((doc) => {
+                console.log("Heutige Ernährung geladen:", doc.data());
+            });
+        }
+
+        loadTodayData();
+    </script>
+</body>
+</html>
