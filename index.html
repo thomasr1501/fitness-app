@@ -319,7 +319,7 @@
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 5.3 - Makro-Übersicht & Frischkäse</div>
+        <div class="version-badge">Version 5.4 - Makro-Bedarfsrechner</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -460,7 +460,7 @@
             </div>
 
             <div class="card">
-                <h2>Kalorienbedarf-Rechner (TDEE)</h2>
+                <h2>Bedarfsrechner (Kalorien & Makros)</h2>
                 <div class="row">
                     <div class="form-group">
                         <label for="calc-weight">Gewicht (kg)</label>
@@ -476,7 +476,11 @@
                     </div>
                 </div>
                 <button class="btn btn-secondary" id="btn-calc-tdee">Bedarf berechnen</button>
-                <div id="tdee-result" style="margin-top: 1rem; font-size: 0.95rem; color: var(--text-secondary);">Erhaltungsumsatz: <b>2850 kcal</b></div>
+                <div id="tdee-result" style="margin-top: 1rem; font-size: 0.95rem; color: var(--text-secondary); line-height: 1.5;">
+                    Erhaltungsumsatz: <b>2850 kcal</b><br>
+                    Empfohlenes Ziel (Kraftsport):<br>
+                    Eiweiß: <b>186g</b> | Fett: <b>93g</b> | Kohlenhydrate: <b>319g</b>
+                </div>
             </div>
 
             <div class="card">
@@ -521,7 +525,11 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // Globale Zielwerte (Standard für 93kg / 190cm / 26 Jahre)
         let currentTDEE = 2850;
+        let targetProtein = 186; // 2.0g per kg
+        let targetFat = 93;      // 1.0g per kg
+        let targetCarbs = 319;   // Restlicher Bedarf
 
         const dateInput = document.getElementById('global-date');
         const getTodayString = () => new Date().toISOString().split('T')[0];
@@ -658,10 +666,10 @@
             } catch (e) { console.error("Fehler:", e); }
         };
 
-        // Aktualisiertes Frühstück (inkl. körniger Frischkäse) & Mittagessen
         document.getElementById('btn-quick-breakfast').addEventListener('click', () => saveNutrition("Frühstück: 2 Eier, Pumpernickel, 100g körniger Frischkäse", 450, 32, 28, 20));
         document.getElementById('btn-quick-lunch').addEventListener('click', () => saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse", 550, 45, 50, 18));
 
+        // --- TDEE & Makro Rechner ---
         document.getElementById('btn-calc-tdee').addEventListener('click', () => {
             const weight = Number(document.getElementById('calc-weight').value);
             const height = Number(document.getElementById('calc-height').value);
@@ -670,7 +678,19 @@
             const bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
             currentTDEE = Math.round(bmr * 1.45);
 
-            document.getElementById('tdee-result').innerHTML = `Erhaltungsumsatz: <b>${currentTDEE} kcal</b>`;
+            // Sportwissenschaftliche Makro-Empfehlungen
+            targetProtein = Math.round(weight * 2.0); // 2.0g / kg
+            targetFat = Math.round(weight * 1.0);     // 1.0g / kg
+            
+            // Restliche Kalorien als Kohlenhydrate (1g Protein = 4kcal, 1g Fett = 9kcal, 1g Carbs = 4kcal)
+            const caloriesFromProtein = targetProtein * 4;
+            const caloriesFromFat = targetFat * 9;
+            const remainingCalories = currentTDEE - (caloriesFromProtein + caloriesFromFat);
+            targetCarbs = Math.max(0, Math.round(remainingCalories / 4));
+
+            document.getElementById('tdee-result').innerHTML = `Erhaltungsumsatz: <b>${currentTDEE} kcal</b><br>` +
+                                                               `Empfohlenes Ziel (Kraftsport):<br>` +
+                                                               `Eiweiß: <b>${targetProtein}g</b> | Fett: <b>${targetFat}g</b> | Kohlenhydrate: <b>${targetCarbs}g</b>`;
             loadDayData();
         });
 
@@ -849,10 +869,16 @@
                 colorStyle = "color: var(--danger-color);";
             }
 
+            // Soll/Ist Vergleich für Makros
+            const pRounded = Math.round(totalProtein * 10) / 10;
+            const cRounded = Math.round(totalCarbs * 10) / 10;
+            const fRounded = Math.round(totalFat * 10) / 10;
+
             summaryBox.innerHTML = `Aufgenommen: <b>${totalCals} kcal</b> | Zielbedarf: <b>${currentTDEE} kcal</b><br>` +
                                    `<span style="${colorStyle}">${diffText}</span><br>` +
                                    `<hr style="border:0; border-top:1px solid var(--border-color); margin:0.5rem 0;">` +
-                                   `<b>Makros:</b> Eiweiß: <b>${Math.round(totalProtein*10)/10}g</b> | Kohlenhydrate: <b>${Math.round(totalCarbs*10)/10}g</b> | Fett: <b>${Math.round(totalFat*10)/10}g</b>`;
+                                   `<b>Makros (Ist / Soll):</b><br>` +
+                                   `Eiweiß: <b>${pRounded}g / ${targetProtein}g</b> | Kohlenhydrate: <b>${cRounded}g / ${targetCarbs}g</b> | Fett: <b>${fRounded}g / ${targetFat}g</b>`;
         }
 
         async function loadArchiveData() {
