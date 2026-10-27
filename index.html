@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fitness & Ernährungs-Tracker</title>
+    <!-- Chart.js CDN für visuelle Auswertung -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --bg-color: #121212;
@@ -65,21 +67,22 @@
 
         .tabs {
             display: flex;
-            gap: 0.5rem;
+            gap: 0.4rem;
             margin-bottom: 1.5rem;
         }
 
         .tab-btn {
             flex: 1;
-            padding: 0.75rem 0.25rem;
+            padding: 0.75rem 0.2rem;
             background-color: var(--surface-color);
             border: 1px solid var(--border-color);
             color: var(--text-primary);
             border-radius: var(--border-radius);
             cursor: pointer;
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             font-weight: 600;
             transition: background-color 0.2s;
+            text-align: center;
         }
 
         .tab-btn.active {
@@ -357,11 +360,34 @@
             flex-direction: column;
             gap: 1rem;
         }
+
+        .quick-log-card {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .quick-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .quick-log-edit-panel {
+            display: none;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border-color);
+        }
+        .quick-log-edit-panel.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 6.2 - Barcode-Scanner & Dynamischer Rechner</div>
+        <div class="version-badge">Version 6.4 - Modifizierbare Schnell-Logs & Körniger Frischkäse 25g</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -369,10 +395,11 @@
             <input type="date" id="global-date">
         </div>
 
-        <!-- Navigation -->
+        <!-- Navigation (4 Tabs) -->
         <div class="tabs">
             <button class="tab-btn active" id="btn-tab-training">Training</button>
             <button class="tab-btn" id="btn-tab-nutrition">Ernährung</button>
+            <button class="tab-btn" id="btn-tab-progress">Fortschritt</button>
             <button class="tab-btn" id="btn-tab-archive">Archiv</button>
         </div>
 
@@ -597,15 +624,88 @@
                 </div>
             </div>
 
+            <!-- Anpassbare Schnell-Logs -->
             <div class="card">
                 <h2>Schnell-Log (One-Click)</h2>
-                <div class="quick-logs">
-                    <button class="btn btn-secondary btn-text-left" id="btn-quick-breakfast">
-                        + Frühstück: 2 Eier, Pumpernickel, 100g körniger Frischkäse (~450 kcal)
-                    </button>
-                    <button class="btn btn-secondary btn-text-left" id="btn-quick-lunch">
-                        + Mittag: Quarkcreme, Müsli, Nüsse (~550 kcal)
-                    </button>
+                
+                <!-- Frühstück Template -->
+                <div class="quick-log-card">
+                    <div class="quick-log-header">
+                        <button class="btn btn-secondary btn-text-left" id="btn-quick-breakfast" style="margin:0; flex:1;">
+                            + <span id="label-quick-breakfast">Frühstück: 2 Eier, Pumpernickel, 25g körniger Frischkäse (~375 kcal)</span>
+                        </button>
+                        <button class="icon-btn" id="btn-edit-quick-breakfast" title="Vorlage bearbeiten" style="padding:0.5rem; background:var(--surface-color); border:1px solid var(--border-color); border-radius:var(--border-radius);">✏️</button>
+                    </div>
+                    <div class="quick-log-edit-panel" id="panel-quick-breakfast">
+                        <div class="form-group">
+                            <label for="ql-breakfast-name">Bezeichnung</label>
+                            <input type="text" id="ql-breakfast-name">
+                        </div>
+                        <div class="row">
+                            <div class="form-group">
+                                <label for="ql-breakfast-cals">Kalorien (kcal)</label>
+                                <input type="number" id="ql-breakfast-cals">
+                            </div>
+                            <div class="form-group">
+                                <label for="ql-breakfast-p">Eiweiß (g)</label>
+                                <input type="number" id="ql-breakfast-p" step="0.1">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="form-group">
+                                <label for="ql-breakfast-c">Kohlenhydrate (g)</label>
+                                <input type="number" id="ql-breakfast-c" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="ql-breakfast-f">Fett (g)</label>
+                                <input type="number" id="ql-breakfast-f" step="0.1">
+                            </div>
+                        </div>
+                        <div class="row" style="margin-top:0.5rem;">
+                            <button class="btn btn-secondary" id="btn-save-ql-breakfast-preset" style="font-size:0.85rem;">Als Vorlage speichern</button>
+                            <button class="btn" id="btn-log-ql-breakfast-direct" style="font-size:0.85rem;">Loggen & Speichern</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mittagessen Template -->
+                <div class="quick-log-card">
+                    <div class="quick-log-header">
+                        <button class="btn btn-secondary btn-text-left" id="btn-quick-lunch" style="margin:0; flex:1;">
+                            + <span id="label-quick-lunch">Mittagessen: Quarkcreme, Müsli, Nüsse (~550 kcal)</span>
+                        </button>
+                        <button class="icon-btn" id="btn-edit-quick-lunch" title="Vorlage bearbeiten" style="padding:0.5rem; background:var(--surface-color); border:1px solid var(--border-color); border-radius:var(--border-radius);">✏️</button>
+                    </div>
+                    <div class="quick-log-edit-panel" id="panel-quick-lunch">
+                        <div class="form-group">
+                            <label for="ql-lunch-name">Bezeichnung</label>
+                            <input type="text" id="ql-lunch-name">
+                        </div>
+                        <div class="row">
+                            <div class="form-group">
+                                <label for="ql-lunch-cals">Kalorien (kcal)</label>
+                                <input type="number" id="ql-lunch-cals">
+                            </div>
+                            <div class="form-group">
+                                <label for="ql-lunch-p">Eiweiß (g)</label>
+                                <input type="number" id="ql-lunch-p" step="0.1">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="form-group">
+                                <label for="ql-lunch-c">Kohlenhydrate (g)</label>
+                                <input type="number" id="ql-lunch-c" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="ql-lunch-f">Fett (g)</label>
+                                <input type="number" id="ql-lunch-f" step="0.1">
+                            </div>
+                        </div>
+                        <div class="row" style="margin-top:0.5rem;">
+                            <button class="btn btn-secondary" id="btn-save-ql-lunch-preset" style="font-size:0.85rem;">Als Vorlage speichern</button>
+                            <button class="btn" id="btn-log-ql-lunch-direct" style="font-size:0.85rem;">Loggen & Speichern</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -670,6 +770,37 @@
             </div>
         </div>
 
+        <!-- Progress View (Fortschritts-Analyse) -->
+        <div class="view" id="view-progress">
+            <div class="card">
+                <h2>📈 Kraftfortschritt</h2>
+                <div class="form-group">
+                    <label for="progress-gym-select">Fitnessstudio wählen</label>
+                    <select id="progress-gym-select">
+                        <option value="">Lade Studios...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="progress-exercise-select">Übung wählen</label>
+                    <select id="progress-exercise-select">
+                        <option value="">Lade Übungen...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="progress-metric-select">Auswertung nach</label>
+                    <select id="progress-metric-select">
+                        <option value="maxWeight">Maximalgewicht (kg)</option>
+                        <option value="totalVolume">Gesamtvolumen (kg × Wdh)</option>
+                    </select>
+                </div>
+
+                <div style="position: relative; width:100%; height:260px; margin-top:1rem;">
+                    <canvas id="progress-chart"></canvas>
+                </div>
+                <div id="progress-info-text" style="text-align:center; font-size:0.85rem; color:var(--text-secondary); margin-top:0.75rem;"></div>
+            </div>
+        </div>
+
         <!-- Archiv View -->
         <div class="view" id="view-archive">
             <div class="card">
@@ -710,8 +841,109 @@
         let targetFat = 93;
         let targetCarbs = 319;
         let currentDayStats = { cals: 0, protein: 0 };
+        let progressChart = null;
+        let cachedProgressWorkouts = [];
 
-        // --- Optimierung 2: Visuelles Feedback beim Speichern ---
+        // --- Standard-Schnell-Logs & LocalStorage Logik ---
+        const DEFAULT_QUICK_LOGS = {
+            breakfast: {
+                name: "Frühstück: 2 Eier, Pumpernickel, 25g körniger Frischkäse",
+                cals: 375,
+                p: 23,
+                c: 27,
+                f: 17
+            },
+            lunch: {
+                name: "Mittagessen: Quarkcreme, Müsli, Nüsse",
+                cals: 550,
+                p: 45,
+                c: 50,
+                f: 18
+            }
+        };
+
+        function getQuickLogConfig(type) {
+            const saved = localStorage.getItem(`ql_preset_${type}`);
+            if (saved) {
+                try { return JSON.parse(saved); } catch (e) { console.error("Fehler beim Laden von QuickLog:", e); }
+            }
+            return DEFAULT_QUICK_LOGS[type];
+        }
+
+        function saveQuickLogConfig(type, config) {
+            localStorage.setItem(`ql_preset_${type}`, JSON.stringify(config));
+            updateQuickLogUI(type);
+        }
+
+        function updateQuickLogUI(type) {
+            const config = getQuickLogConfig(type);
+            const labelEl = document.getElementById(`label-quick-${type}`);
+            if (labelEl) {
+                labelEl.innerText = `${config.name} (~${config.cals} kcal)`;
+            }
+
+            const nameInput = document.getElementById(`ql-${type}-name`);
+            const calsInput = document.getElementById(`ql-${type}-cals`);
+            const pInput = document.getElementById(`ql-${type}-p`);
+            const cInput = document.getElementById(`ql-${type}-c`);
+            const fInput = document.getElementById(`ql-${type}-f`);
+
+            if (nameInput) nameInput.value = config.name;
+            if (calsInput) calsInput.value = config.cals;
+            if (pInput) pInput.value = config.p;
+            if (cInput) cInput.value = config.c;
+            if (fInput) fInput.value = config.f;
+        }
+
+        function initQuickLogs() {
+            ['breakfast', 'lunch'].forEach(type => {
+                updateQuickLogUI(type);
+
+                // Edit Button
+                document.getElementById(`btn-edit-quick-${type}`).addEventListener('click', () => {
+                    const panel = document.getElementById(`panel-quick-${type}`);
+                    panel.classList.toggle('active');
+                });
+
+                // Schnell-Log Hauptbutton
+                document.getElementById(`btn-quick-${type}`).addEventListener('click', async (e) => {
+                    const cfg = getQuickLogConfig(type);
+                    await saveNutrition(cfg.name, cfg.cals, cfg.p, cfg.c, cfg.f);
+                    triggerButtonFeedback(e.currentTarget);
+                });
+
+                // Vorlage speichern
+                document.getElementById(`btn-save-ql-${type}-preset`).addEventListener('click', (e) => {
+                    const newConfig = {
+                        name: document.getElementById(`ql-${type}-name`).value.trim() || DEFAULT_QUICK_LOGS[type].name,
+                        cals: Number(document.getElementById(`ql-${type}-cals`).value) || 0,
+                        p: Number(document.getElementById(`ql-${type}-p`).value) || 0,
+                        c: Number(document.getElementById(`ql-${type}-c`).value) || 0,
+                        f: Number(document.getElementById(`ql-${type}-f`).value) || 0
+                    };
+                    saveQuickLogConfig(type, newConfig);
+                    triggerButtonFeedback(e.currentTarget);
+                    document.getElementById(`panel-quick-${type}`).classList.remove('active');
+                });
+
+                // Loggen & Speichern
+                document.getElementById(`btn-log-ql-${type}-direct`).addEventListener('click', async (e) => {
+                    const newConfig = {
+                        name: document.getElementById(`ql-${type}-name`).value.trim() || DEFAULT_QUICK_LOGS[type].name,
+                        cals: Number(document.getElementById(`ql-${type}-cals`).value) || 0,
+                        p: Number(document.getElementById(`ql-${type}-p`).value) || 0,
+                        c: Number(document.getElementById(`ql-${type}-c`).value) || 0,
+                        f: Number(document.getElementById(`ql-${type}-f`).value) || 0
+                    };
+                    saveQuickLogConfig(type, newConfig);
+                    await saveNutrition(newConfig.name, newConfig.cals, newConfig.p, newConfig.c, newConfig.f);
+                    triggerButtonFeedback(e.currentTarget);
+                    document.getElementById(`panel-quick-${type}`).classList.remove('active');
+                });
+            });
+        }
+
+        // --- Visuelles Feedback beim Speichern ---
         function triggerButtonFeedback(btn) {
             if (!btn) return;
             const originalText = btn.innerText;
@@ -753,7 +985,7 @@
             });
         });
 
-        // --- Kamera Barcode Scanner Logik & Optimierung 1 (Stream beenden) ---
+        // --- Kamera Barcode Scanner Logik ---
         let scannerStream = null;
         let scannerInterval = null;
         const videoElement = document.getElementById('scanner-video');
@@ -900,126 +1132,26 @@
         });
 
         const recipeDatabase = [
-            {
-                name: "Thunfisch-Protein-Omelett",
-                calories: 420, protein: 48, carbs: 8, fat: 21,
-                ingredients: ["3 Eier", "1 Dose Thunfisch im eigenen Saft (150g)", "1 Handvoll Spinat", "Salz, Pfeffer, Paprika"],
-                prep: "Eier verquirlen, würzen. In der Pfanne stocken lassen, Thunfisch und Spinat zugeben, zusammenklappen."
-            },
-            {
-                name: "Hähnchen-Gemüse-Pfanne mit Reis",
-                calories: 650, protein: 55, carbs: 65, fat: 14,
-                ingredients: ["200g Hähnchenbrust", "100g Reis", "200g TK-Mexikogemüse", "1 TL Olivenöl", "Sojasauce"],
-                prep: "Reis kochen. Hähnchen in Öl anbraten, Gemüse mitrösten, mit Sojasauce ablöschen und mischen."
-            },
-            {
-                name: "Körniger Frischkäse & Lachs Bowl",
-                calories: 480, protein: 44, carbs: 15, fat: 26,
-                ingredients: ["200g Körniger Frischkäse", "80g Räucherlachs", "1 Tomate", "1 Gurke", "Schnittlauch"],
-                prep: "Körnigen Frischkäse in eine Schüssel geben, Lachs unterheben. Mit Tomaten, Gurke und Schnittlauch garnieren."
-            },
-            {
-                name: "Magerquark-Beeren-Abendbowl",
-                calories: 310, protein: 38, carbs: 30, fat: 4,
-                ingredients: ["250g Magerquark", "100g Blaubeeren / Himbeeren", "1 TL Honig", "15g Chiasamen"],
-                prep: "Magerquark glattrühren, Beeren unterheben und mit Chiasamen sowie Honig toppen."
-            },
-            {
-                name: "Rinder-Steak mit Ofenkartoffeln",
-                calories: 820, protein: 62, carbs: 70, fat: 30,
-                ingredients: ["250g Rumpsteak", "300g Kartoffeln", "1 EL Olivenöl", "Rosmarin", "150g Brokkoli"],
-                prep: "Kartoffeln als Wedges im Ofen backen. Brokkoli dämpfen. Steak scharf anbraten und garziehen lassen."
-            },
-            {
-                name: "Lachsfilet mit Kräuterquark & Kartoffeln",
-                calories: 680, protein: 45, carbs: 45, fat: 34,
-                ingredients: ["200g Lachsfilet", "250g Kartoffeln", "150g Magerquark", "Frische Kräuter & Zitrone"],
-                prep: "Kartoffeln kochen. Lachs in der Pfanne braten. Quark mit Kräutern und Zitrone als Dip dazu servieren."
-            },
-            {
-                name: "Puten-Wraps mit Salat & Joghurt-Dip",
-                calories: 540, protein: 48, carbs: 52, fat: 16,
-                ingredients: ["2 Vollkorn-Wraps", "180g Putenbrust", "Eisbergsalat, Tomate", "150g griech. Joghurt (0%)"],
-                prep: "Putenbrust anbraten. Joghurt würzen. Wraps erwärmen, mit Salat, Fleisch und Dip füllen und rollen."
-            },
-            {
-                name: "Schnelles Rührei-Vollkornbrot",
-                calories: 380, protein: 26, carbs: 32, fat: 16,
-                ingredients: ["3 Eier", "2 Scheiben Vollkornbrot", "1 Scheibe Schinken", "Schnittlauch"],
-                prep: "Eier als Rührei zubereiten. Auf den mit Schinken belegten Vollkornbrotscheiben anrichten."
-            },
-            {
-                name: "Griechischer Bauernsalat mit Feta",
-                calories: 350, protein: 18, carbs: 12, fat: 26,
-                ingredients: ["150g Feta (fettreduziert)", "Gurke, Tomaten, Oliven, rote Zwiebel", "1 EL Olivenöl & Essig"],
-                prep: "Gemüse würfeln, Oliven und Feta dazugeben. Mit Olivenöl, Essig, Salz, Pfeffer und Oregano marinieren."
-            },
-            {
-                name: "Hüttenkäse-Vollkorn-Stulle",
-                calories: 320, protein: 30, carbs: 35, fat: 6,
-                ingredients: ["200g Körniger Frischkäse", "2 Scheiben Pumpernickel", "1 Bund Radieschen", "Kresse"],
-                prep: "Pumpernickel mit körnigem Frischkäse bestreichen. Radieschenscheiben darauflegen und mit Kresse toppen."
-            },
-            {
-                name: "Puten-Reis-Pfanne mit Tomatensauce",
-                calories: 580, protein: 52, carbs: 60, fat: 12,
-                ingredients: ["200g Putenbrust", "100g Reis", "150g Passierte Tomaten", "1 Zwiebel", "1 TL Olivenöl"],
-                prep: "Reis kochen. Putenbrust mit Zwiebeln anbraten, passierte Tomaten und Gewürze einrühren, mit Reis servieren."
-            },
-            {
-                name: "Thunfisch-Vollkorn-Sandwich",
-                calories: 450, protein: 38, carbs: 40, fat: 14,
-                ingredients: ["2 Scheiben Vollkornbrot", "1 Dose Thunfisch (150g)", "2 EL Magerquark (als Mayo-Ersatz)", "Gurkenscheiben"],
-                prep: "Thunfisch mit Magerquark und Gewürzen vermengen. Auf das Vollkornbrot geben und mit Gurken belegen."
-            },
-            {
-                name: "Gegrilltes Rindersteak mit Spinatsalat",
-                calories: 610, protein: 58, carbs: 10, fat: 38,
-                ingredients: ["250g Rumpsteak", "150g Babyspinat", "50g Feta", "1 EL Olivenöl & Balsamico"],
-                prep: "Spinat mit Olivenöl und Balsamico marinieren, Feta bröseln. Steak braten und auf dem Salat anrichten."
-            },
-            {
-                name: "Hähnchenbrust mit Ofengemüse",
-                calories: 490, protein: 52, carbs: 35, fat: 12,
-                ingredients: ["220g Hähnchenbrust", "300g Kartoffeln oder Süßkartoffeln", "1 Zucchini", "1 EL Olivenöl"],
-                prep: "Gemüse und Kartoffeln in Würfel schneiden, mit Olivenöl und Gewürzen im Ofen bei 200°C backen. Hähnchen anbraten."
-            },
-            {
-                name: "Protein-Haferbrei (Herzhaft mit Ei)",
-                calories: 410, protein: 32, carbs: 48, fat: 10,
-                ingredients: ["80g Haferflocken", "250ml Milch 1.5%", "1 Ei", "1 Prise Salz & Pfeffer"],
-                prep: "Haferflocken mit Milch aufkochen. Kurz vor Ende ein Ei unterrühren und kräftig cremig rühren, kräftig würzen."
-            },
-            {
-                name: "Lachs-Spinat-Pfanne",
-                calories: 590, protein: 44, carbs: 12, fat: 40,
-                ingredients: ["200g Lachsfilet", "200g Babyspinat", "1 Knoblauchzehe", "1 TL Olivenöl"],
-                prep: "Knoblauch in Olivenöl anbraten, Spinat zusammenfallen lassen. Lachsfilet darauflegen und mitgaren lassen."
-            },
-            {
-                name: "Puten-Spieße mit Gurkensalat",
-                calories: 420, protein: 50, carbs: 14, fat: 18,
-                ingredients: ["200g Putenbrust (in Würfeln)", "1 große Gurke", "150g griech. Joghurt (0%)", "Dill & Knoblauch"],
-                prep: "Putenwürfel anbraten. Joghurt mit Gurkenraspeln, Dill und Knoblauch zu einem Zaziki verrühren und dazu essen."
-            },
-            {
-                name: "Eier-Omelett mit Tomate & Mozzarella-Light",
-                calories: 460, protein: 36, carbs: 10, fat: 30,
-                ingredients: ["4 Eier", "1 Tomate", "60g Light-Mozzarella", "Basilikum"],
-                prep: "Eier verquirlen. In der Pfanne stocken lassen, Tomatenscheiben und Mozzarella darauflegen, schmelzen lassen."
-            },
-            {
-                name: "Quark-Pancakes mit Beeren",
-                calories: 390, protein: 35, carbs: 42, fat: 6,
-                ingredients: ["150g Magerquark", "1 Ei", "50g Haferflocken", "50g Beeren"],
-                prep: "Quark, Ei und Haferflocken mixen. Kleine Pancakes in einer beschichteten Pfanne ausbacken und mit Beeren servieren."
-            },
-            {
-                name: "Einfaches Rinder-Chili (Low Carb)",
-                calories: 550, protein: 58, carbs: 22, fat: 24,
-                ingredients: ["200g Rinderhackfleisch (mager)", "150g passierte Tomaten", "1 kleine Dose Kidneybohnen (120g)", "Paprikapulver"],
-                prep: "Rinderhack anbraten, passierte Tomaten und abgespülte Kidneybohnen dazugeben, 15 Minuten köcheln lassen."
-            }
+            { name: "Thunfisch-Protein-Omelett", calories: 420, protein: 48, carbs: 8, fat: 21, ingredients: ["3 Eier", "1 Dose Thunfisch im eigenen Saft (150g)", "1 Handvoll Spinat", "Salz, Pfeffer, Paprika"], prep: "Eier verquirlen, würzen. In der Pfanne stocken lassen, Thunfisch und Spinat zugeben, zusammenklappen." },
+            { name: "Hähnchen-Gemüse-Pfanne mit Reis", calories: 650, protein: 55, carbs: 65, fat: 14, ingredients: ["200g Hähnchenbrust", "100g Reis", "200g TK-Mexikogemüse", "1 TL Olivenöl", "Sojasauce"], prep: "Reis kochen. Hähnchen in Öl anbraten, Gemüse mitrösten, mit Sojasauce ablöschen und mischen." },
+            { name: "Körniger Frischkäse & Lachs Bowl", calories: 480, protein: 44, carbs: 15, fat: 26, ingredients: ["200g Körniger Frischkäse", "80g Räucherlachs", "1 Tomate", "1 Gurke", "Schnittlauch"], prep: "Körnigen Frischkäse in eine Schüssel geben, Lachs unterheben. Mit Tomaten, Gurke und Schnittlauch garnieren." },
+            { name: "Magerquark-Beeren-Abendbowl", calories: 310, protein: 38, carbs: 30, fat: 4, ingredients: ["250g Magerquark", "100g Blaubeeren / Himbeeren", "1 TL Honig", "15g Chiasamen"], prep: "Magerquark glattrühren, Beeren unterheben und mit Chiasamen sowie Honig toppen." },
+            { name: "Rinder-Steak mit Ofenkartoffeln", calories: 820, protein: 62, carbs: 70, fat: 30, ingredients: ["250g Rumpsteak", "300g Kartoffeln", "1 EL Olivenöl", "Rosmarin", "150g Brokkoli"], prep: "Kartoffeln als Wedges im Ofen backen. Brokkoli dämpfen. Steak scharf anbraten und garziehen lassen." },
+            { name: "Lachsfilet mit Kräuterquark & Kartoffeln", calories: 680, protein: 45, carbs: 45, fat: 34, ingredients: ["200g Lachsfilet", "250g Kartoffeln", "150g Magerquark", "Frische Kräuter & Zitrone"], prep: "Kartoffeln kochen. Lachs in der Pfanne braten. Quark mit Kräutern und Zitrone als Dip dazu servieren." },
+            { name: "Puten-Wraps mit Salat & Joghurt-Dip", calories: 540, protein: 48, carbs: 52, fat: 16, ingredients: ["2 Vollkorn-Wraps", "180g Putenbrust", "Eisbergsalat, Tomate", "150g griech. Joghurt (0%)"], prep: "Putenbrust anbraten. Joghurt würzen. Wraps erwärmen, mit Salat, Fleisch und Dip füllen und rollen." },
+            { name: "Schnelles Rührei-Vollkornbrot", calories: 380, protein: 26, carbs: 32, fat: 16, ingredients: ["3 Eier", "2 Scheiben Vollkornbrot", "1 Scheibe Schinken", "Schnittlauch"], prep: "Eier als Rührei zubereiten. Auf den mit Schinken belegten Vollkornbrotscheiben anrichten." },
+            { name: "Griechischer Bauernsalat mit Feta", calories: 350, protein: 18, carbs: 12, fat: 26, ingredients: ["150g Feta (fettreduziert)", "Gurke, Tomaten, Oliven, rote Zwiebel", "1 EL Olivenöl & Essig"], prep: "Gemüse würfeln, Oliven und Feta dazugeben. Mit Olivenöl, Essig, Salz, Pfeffer und Oregano marinieren." },
+            { name: "Hüttenkäse-Vollkorn-Stulle", calories: 320, protein: 30, carbs: 35, fat: 6, ingredients: ["200g Körniger Frischkäse", "2 Scheiben Pumpernickel", "1 Bund Radieschen", "Kresse"], prep: "Pumpernickel mit körnigem Frischkäse bestreichen. Radieschenscheiben darauflegen und mit Kresse toppen." },
+            { name: "Puten-Reis-Pfanne mit Tomatensauce", calories: 580, protein: 52, carbs: 60, fat: 12, ingredients: ["200g Putenbrust", "100g Reis", "150g Passierte Tomaten", "1 Zwiebel", "1 TL Olivenöl"], prep: "Reis kochen. Putenbrust mit Zwiebeln anbraten, passierte Tomaten und Gewürze einrühren, mit Reis servieren." },
+            { name: "Thunfisch-Vollkorn-Sandwich", calories: 450, protein: 38, carbs: 40, fat: 14, ingredients: ["2 Scheiben Vollkornbrot", "1 Dose Thunfisch (150g)", "2 EL Magerquark (als Mayo-Ersatz)", "Gurkenscheiben"], prep: "Thunfisch mit Magerquark und Gewürzen vermengen. Auf das Vollkornbrot geben und mit Gurken belegen." },
+            { name: "Gegrilltes Rindersteak mit Spinatsalat", calories: 610, protein: 58, carbs: 10, fat: 38, ingredients: ["250g Rumpsteak", "150g Babyspinat", "50g Feta", "1 EL Olivenöl & Balsamico"], prep: "Spinat mit Olivenöl und Balsamico marinieren, Feta bröseln. Steak braten und auf dem Salat anrichten." },
+            { name: "Hähnchenbrust mit Ofengemüse", calories: 490, protein: 52, carbs: 35, fat: 12, ingredients: ["220g Hähnchenbrust", "300g Kartoffeln oder Süßkartoffeln", "1 Zucchini", "1 EL Olivenöl"], prep: "Gemüse und Kartoffeln in Würfel schneiden, mit Olivenöl und Gewürzen im Ofen bei 200°C backen. Hähnchen anbraten." },
+            { name: "Protein-Haferbrei (Herzhaft mit Ei)", calories: 410, protein: 32, carbs: 48, fat: 10, ingredients: ["80g Haferflocken", "250ml Milch 1.5%", "1 Ei", "1 Prise Salz & Pfeffer"], prep: "Haferflocken mit Milch aufkochen. Kurz vor Ende ein Ei unterrühren und kräftig cremig rühren, kräftig würzen." },
+            { name: "Lachs-Spinat-Pfanne", calories: 590, protein: 44, carbs: 12, fat: 40, ingredients: ["200g Lachsfilet", "200g Babyspinat", "1 Knoblauchzehe", "1 TL Olivenöl"], prep: "Knoblauch in Olivenöl anbraten, Spinat zusammenfallen lassen. Lachsfilet darauflegen und mitgaren lassen." },
+            { name: "Puten-Spieße mit Gurkensalat", calories: 420, protein: 50, carbs: 14, fat: 18, ingredients: ["200g Putenbrust (in Würfeln)", "1 große Gurke", "150g griech. Joghurt (0%)", "Dill & Knoblauch"], prep: "Putenwürfel anbraten. Joghurt mit Gurkenraspeln, Dill und Knoblauch zu einem Zaziki verrühren und dazu essen." },
+            { name: "Eier-Omelett mit Tomate & Mozzarella-Light", calories: 460, protein: 36, carbs: 10, fat: 30, ingredients: ["4 Eier", "1 Tomate", "60g Light-Mozzarella", "Basilikum"], prep: "Eier verquirlen. In der Pfanne stocken lassen, Tomatenscheiben und Mozzarella darauflegen, schmelzen lassen." },
+            { name: "Quark-Pancakes mit Beeren", calories: 390, protein: 35, carbs: 42, fat: 6, ingredients: ["150g Magerquark", "1 Ei", "50g Haferflocken", "50g Beeren"], prep: "Quark, Ei und Haferflocken mixen. Kleine Pancakes in einer beschichteten Pfanne ausbacken und mit Beeren servieren." },
+            { name: "Einfaches Rinder-Chili (Low Carb)", calories: 550, protein: 58, carbs: 22, fat: 24, ingredients: ["200g Rinderhackfleisch (mager)", "150g passierte Tomaten", "1 kleine Dose Kidneybohnen (120g)", "Paprikapulver"], prep: "Rinderhack anbraten, passierte Tomaten und abgespülte Kidneybohnen dazugeben, 15 Minuten köcheln lassen." }
         ];
 
         const recipeDropdown = document.getElementById('recipe-select-dropdown');
@@ -1198,15 +1330,6 @@
             document.getElementById('manual-fat').value = '';
         });
 
-        document.getElementById('btn-quick-breakfast').addEventListener('click', (e) => {
-            saveNutrition("Frühstück: 2 Eier, Pumpernickel, 100g körniger Frischkäse", 450, 32, 28, 20);
-            triggerButtonFeedback(e.currentTarget);
-        });
-        document.getElementById('btn-quick-lunch').addEventListener('click', (e) => {
-            saveNutrition("Mittagessen: Quarkcreme, Müsli, Nüsse", 550, 45, 50, 18);
-            triggerButtonFeedback(e.currentTarget);
-        });
-
         // Datum & Tabs
         const dateInput = document.getElementById('global-date');
         const getTodayString = () => new Date().toISOString().split('T')[0];
@@ -1221,6 +1344,7 @@
         const tabs = [
             { btn: document.getElementById('btn-tab-training'), view: document.getElementById('view-training') },
             { btn: document.getElementById('btn-tab-nutrition'), view: document.getElementById('view-nutrition') },
+            { btn: document.getElementById('btn-tab-progress'), view: document.getElementById('view-progress') },
             { btn: document.getElementById('btn-tab-archive'), view: document.getElementById('view-archive') }
         ];
 
@@ -1231,6 +1355,7 @@
                 tab.btn.classList.add('active');
                 tab.view.classList.add('active');
                 if (tab.btn.id === 'btn-tab-archive') loadArchiveData();
+                if (tab.btn.id === 'btn-tab-progress') loadProgressData();
             });
         });
         
@@ -1521,6 +1646,171 @@
                                    `Eiweiß: <b>${pRounded}g / ${targetProtein}g</b> | Kohlenhydrate: <b>${cRounded}g / ${targetCarbs}g</b> | Fett: <b>${fRounded}g / ${targetFat}g</b>`;
         }
 
+        // --- Logik für den "Fortschritt"-Reiter (Chart.js & Filter) ---
+        async function loadProgressData() {
+            const q = query(collection(db, "workouts"), where("category", "==", "strength"));
+            const snap = await getDocs(q);
+            cachedProgressWorkouts = [];
+
+            snap.forEach(d => {
+                cachedProgressWorkouts.push({ id: d.id, ...d.data() });
+            });
+
+            cachedProgressWorkouts.sort((a, b) => {
+                const timeA = a.timestamp?.seconds ? a.timestamp.seconds * 1000 : new Date(a.date).getTime();
+                const timeB = b.timestamp?.seconds ? b.timestamp.seconds * 1000 : new Date(b.date).getTime();
+                return timeA - timeB;
+            });
+
+            populateProgressGymFilter();
+        }
+
+        function populateProgressGymFilter() {
+            const gymSelect = document.getElementById('progress-gym-select');
+            const currentGym = gymSelect.value;
+            const gyms = [...new Set(cachedProgressWorkouts.map(w => w.gym).filter(Boolean))];
+
+            gymSelect.innerHTML = gyms.length === 0 
+                ? '<option value="">Keine Daten vorhanden</option>' 
+                : gyms.map(g => `<option value="${g}">${g}</option>`).join('');
+
+            if (currentGym && gyms.includes(currentGym)) {
+                gymSelect.value = currentGym;
+            }
+
+            populateProgressExerciseFilter();
+        }
+
+        function populateProgressExerciseFilter() {
+            const gymSelect = document.getElementById('progress-gym-select');
+            const exerciseSelect = document.getElementById('progress-exercise-select');
+            const selectedGym = gymSelect.value;
+            const currentEx = exerciseSelect.value;
+
+            const filteredWorkouts = cachedProgressWorkouts.filter(w => w.gym === selectedGym);
+            const exercises = [...new Set(filteredWorkouts.map(w => w.exercise).filter(Boolean))];
+
+            exerciseSelect.innerHTML = exercises.length === 0 
+                ? '<option value="">Keine Übungen vorhanden</option>' 
+                : exercises.map(e => `<option value="${e}">${e}</option>`).join('');
+
+            if (currentEx && exercises.includes(currentEx)) {
+                exerciseSelect.value = currentEx;
+            }
+
+            renderProgressChart();
+        }
+
+        function renderProgressChart() {
+            const selectedGym = document.getElementById('progress-gym-select').value;
+            const selectedExercise = document.getElementById('progress-exercise-select').value;
+            const selectedMetric = document.getElementById('progress-metric-select').value;
+            const infoText = document.getElementById('progress-info-text');
+
+            if (!selectedGym || !selectedExercise) {
+                if (progressChart) progressChart.destroy();
+                infoText.innerText = "Bitte wähle Studio und Übung aus.";
+                return;
+            }
+
+            const filtered = cachedProgressWorkouts.filter(w => w.gym === selectedGym && w.exercise === selectedExercise);
+
+            if (filtered.length === 0) {
+                if (progressChart) progressChart.destroy();
+                infoText.innerText = "Keine Daten für diese Kombination vorhanden.";
+                return;
+            }
+
+            const labels = [];
+            const dataValues = [];
+
+            filtered.forEach(w => {
+                const dateObj = new Date(w.date);
+                const dateFormatted = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                labels.push(dateFormatted);
+
+                let val = 0;
+                if (Array.isArray(w.sets) && w.sets.length > 0) {
+                    if (selectedMetric === 'maxWeight') {
+                        val = Math.max(...w.sets.map(s => Number(s.weight) || 0));
+                    } else {
+                        val = w.sets.reduce((acc, s) => acc + ((Number(s.reps) || 0) * (Number(s.weight) || 0)), 0);
+                    }
+                } else if (w.weight) {
+                    if (selectedMetric === 'maxWeight') {
+                        val = Number(w.weight) || 0;
+                    } else {
+                        val = (Number(w.reps) || 1) * (Number(w.sets) || 1) * (Number(w.weight) || 0);
+                    }
+                }
+                dataValues.push(val);
+            });
+
+            const unit = selectedMetric === 'maxWeight' ? 'kg' : 'kg Vol.';
+            infoText.innerText = `${filtered.length} Einheiten in ${selectedGym} ausgewertet.`;
+
+            const ctx = document.getElementById('progress-chart').getContext('2d');
+            
+            if (progressChart) {
+                progressChart.destroy();
+            }
+
+            const metricLabel = selectedMetric === 'maxWeight' ? 'Maximalgewicht (kg)' : 'Gesamtvolumen (kg × Wdh)';
+
+            progressChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: metricLabel,
+                        data: dataValues,
+                        borderColor: '#03dac6',
+                        backgroundColor: 'rgba(3, 218, 198, 0.15)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#03dac6',
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        fill: true,
+                        tension: 0.25
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e0e0e0',
+                                font: { family: '-apple-system, sans-serif', size: 12, weight: 'bold' }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${context.dataset.label}: ${context.parsed.y} ${unit}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        y: {
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('progress-gym-select').addEventListener('change', populateProgressExerciseFilter);
+        document.getElementById('progress-exercise-select').addEventListener('change', renderProgressChart);
+        document.getElementById('progress-metric-select').addEventListener('change', renderProgressChart);
+
         async function loadArchiveData() {
             const archiveList = document.getElementById('archive-list');
             const selectedGymFilter = document.getElementById('archive-gym-filter').value;
@@ -1665,6 +1955,7 @@
                     await deleteDoc(doc(db, col, id));
                     loadDayData(); 
                     if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
+                    if (document.getElementById('view-progress').classList.contains('active')) loadProgressData();
                 }
             }
 
@@ -1692,6 +1983,7 @@
                             await updateDoc(docRef, { sets: newSetsArr });
                             loadDayData();
                             if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
+                            if (document.getElementById('view-progress').classList.contains('active')) loadProgressData();
                         } catch(err) {
                             alert("Fehler beim Format. Bitte so eingeben: 12x50, 9x55");
                         }
@@ -1700,6 +1992,7 @@
             }
         });
 
+        initQuickLogs();
         loadDayData();
     </script>
 </body>
