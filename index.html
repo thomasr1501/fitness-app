@@ -387,7 +387,7 @@
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 6.4 - Modifizierbare Schnell-Logs & Körniger Frischkäse 25g</div>
+        <div class="version-badge">Version 6.5 - Archiv-Löschfunktion & Datumsvalidierung</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -844,6 +844,23 @@
         let progressChart = null;
         let cachedProgressWorkouts = [];
 
+        // --- Datums-Hilfsfunktionen & Validierung ---
+        const dateInput = document.getElementById('global-date');
+        const getTodayString = () => new Date().toISOString().split('T')[0];
+
+        // Verlässliches Initialisieren des tagesaktuellen Datums
+        dateInput.value = getTodayString();
+
+        function validateDate() {
+            const val = dateInput.value;
+            if (!val || isNaN(new Date(val).getTime())) {
+                alert("Bitte ein gültiges Datum auswählen!");
+                dateInput.value = getTodayString();
+                return false;
+            }
+            return true;
+        }
+
         // --- Standard-Schnell-Logs & LocalStorage Logik ---
         const DEFAULT_QUICK_LOGS = {
             breakfast: {
@@ -907,6 +924,7 @@
 
                 // Schnell-Log Hauptbutton
                 document.getElementById(`btn-quick-${type}`).addEventListener('click', async (e) => {
+                    if (!validateDate()) return;
                     const cfg = getQuickLogConfig(type);
                     await saveNutrition(cfg.name, cfg.cals, cfg.p, cfg.c, cfg.f);
                     triggerButtonFeedback(e.currentTarget);
@@ -928,6 +946,7 @@
 
                 // Loggen & Speichern
                 document.getElementById(`btn-log-ql-${type}-direct`).addEventListener('click', async (e) => {
+                    if (!validateDate()) return;
                     const newConfig = {
                         name: document.getElementById(`ql-${type}-name`).value.trim() || DEFAULT_QUICK_LOGS[type].name,
                         cals: Number(document.getElementById(`ql-${type}-cals`).value) || 0,
@@ -1085,6 +1104,7 @@
         }
 
         document.getElementById('btn-add-scanned-food').addEventListener('click', async (e) => {
+            if (!validateDate()) return;
             const name = document.getElementById('scanned-food-name').value;
             const kcal100g = Number(document.getElementById('scanned-food-kcal').value);
             const protein100g = Number(document.getElementById('scanned-food-protein').value);
@@ -1221,6 +1241,7 @@
         }
 
         const saveNutrition = async (mealDetails, calories, protein, carbs, fat) => {
+            if (!validateDate()) return;
             try {
                 await addDoc(collection(db, "nutrition"), {
                     date: dateInput.value,
@@ -1237,6 +1258,7 @@
 
         document.addEventListener('click', async (e) => {
             if (e.target.id === 'btn-add-recipe-log') {
+                if (!validateDate()) return;
                 const name = e.target.dataset.name;
                 const cals = Number(e.target.dataset.cals);
                 const p = Number(e.target.dataset.p);
@@ -1251,6 +1273,7 @@
 
         // 1. API Hinzufügen
         document.getElementById('btn-add-food-api').addEventListener('click', async (e) => {
+            if (!validateDate()) return;
             const name = document.getElementById('selected-food-name').value;
             const kcal100g = Number(document.getElementById('selected-food-kcal').value);
             const protein100g = Number(document.getElementById('selected-food-protein').value);
@@ -1279,6 +1302,7 @@
 
         // 2. Schnellstart Grundnahrungsmittel Hinzufügen
         document.getElementById('btn-add-food-staple').addEventListener('click', async (e) => {
+            if (!validateDate()) return;
             const stapleData = document.getElementById('staple-select').value.split('|');
             const name = stapleData[0];
             const kcal100g = Number(stapleData[1]);
@@ -1303,6 +1327,7 @@
 
         // 3. Manuell Hinzufügen
         document.getElementById('btn-add-food-manual').addEventListener('click', async (e) => {
+            if (!validateDate()) return;
             const name = document.getElementById('manual-name').value.trim();
             const amount = Number(document.getElementById('manual-amount').value);
             const kcal100g = Number(document.getElementById('manual-kcal').value);
@@ -1331,10 +1356,11 @@
         });
 
         // Datum & Tabs
-        const dateInput = document.getElementById('global-date');
-        const getTodayString = () => new Date().toISOString().split('T')[0];
-        dateInput.value = getTodayString();
-        dateInput.addEventListener('change', () => loadDayData());
+        dateInput.addEventListener('change', () => {
+            if (validateDate()) {
+                loadDayData();
+            }
+        });
 
         document.getElementById('calc-weight').addEventListener('input', () => loadDayData());
         document.getElementById('calc-height').addEventListener('input', () => loadDayData());
@@ -1423,6 +1449,7 @@
         });
 
         document.getElementById('btn-save-cardio').addEventListener('click', async (e) => {
+            if (!validateDate()) return;
             const type = document.getElementById('cardio-type').value;
             const distance = document.getElementById('cardio-distance').value;
             const pace = document.getElementById('cardio-pace').value;
@@ -1472,6 +1499,7 @@
         }
 
         document.getElementById('btn-save-strength').addEventListener('click', async (e) => {
+            if (!validateDate()) return;
             let exercise = exerciseSelect.value;
             if (exercise === 'custom') {
                 exercise = exerciseCustom.value;
@@ -1826,14 +1854,14 @@
                 const data = docSnap.data();
                 if (selectedGymFilter !== "ALL" && data.gym !== selectedGymFilter) return;
                 if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], gym: "" };
-                grouped[data.date].workouts.push(data);
+                grouped[data.date].workouts.push({ id: docSnap.id, ...data });
                 if (data.gym) grouped[data.date].gym = data.gym;
             });
 
             nSnap.forEach(docSnap => {
                 const data = docSnap.data();
                 if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], gym: "" };
-                grouped[data.date].nutrition.push(data);
+                grouped[data.date].nutrition.push({ id: docSnap.id, ...data });
             });
 
             const allWorkoutsList = [];
@@ -1879,7 +1907,13 @@
                             if (data.distance) details.push(`${data.distance}km`);
                             if (data.pace) details.push(`${data.pace} min/km`);
                             if (data.duration) details.push(data.duration);
-                            html += `<div class="history-item-details">🏃 <b>${data.type}:</b> ${details.join(' | ')}</div>`;
+
+                            html += `<div class="history-item" style="padding:0.5rem 2.5rem 0.5rem 0.75rem; margin-bottom:0.4rem;">
+                                <div class="action-btns" style="top:0.4rem; right:0.5rem;">
+                                    <button class="icon-btn btn-delete" data-id="${data.id}" data-col="workouts">🗑️</button>
+                                </div>
+                                <div class="history-item-details">🏃 <b>${data.type}:</b> ${details.join(' | ')}</div>
+                            </div>`;
                         } else if (data.category === "strength") {
                             let setsText = "";
                             let comparisonIcon = "";
@@ -1887,7 +1921,7 @@
                             if (Array.isArray(data.sets)) {
                                 setsText = data.sets.map(s => `${s.reps}x${s.weight}kg`).join(' | ');
                                 
-                                const prev = getPreviousPerformance(data.exercise, data.date, data.gym);
+                                const prev = getPreviousPerformance(data.exercise, date, data.gym);
                                 if (prev && Array.isArray(prev.sets) && prev.sets.length === data.sets.length) {
                                     let improved = false;
                                     let worsened = false;
@@ -1912,7 +1946,12 @@
                                 setsText = `${data.sets} Sätze x ${data.reps} Wdh @ ${data.weight}kg`;
                             }
 
-                            html += `<div class="history-item-details">💪 <b>${data.exercise}:</b> ${setsText}${comparisonIcon}</div>`;
+                            html += `<div class="history-item" style="padding:0.5rem 2.5rem 0.5rem 0.75rem; margin-bottom:0.4rem;">
+                                <div class="action-btns" style="top:0.4rem; right:0.5rem;">
+                                    <button class="icon-btn btn-delete" data-id="${data.id}" data-col="workouts">🗑️</button>
+                                </div>
+                                <div class="history-item-details">💪 <b>${data.exercise}:</b> ${setsText}${comparisonIcon}</div>
+                            </div>`;
                         }
                     });
                 }
@@ -1929,7 +1968,13 @@
                         dayP += (data.protein || 0);
                         dayC += (data.carbs || 0);
                         dayF += (data.fat || 0);
-                        html += `<div class="history-item-details">🍽️ ${data.meal} (${data.calories || 0} kcal | E:${data.protein || 0}g)</div>`;
+
+                        html += `<div class="history-item" style="padding:0.5rem 2.5rem 0.5rem 0.75rem; margin-bottom:0.4rem;">
+                            <div class="action-btns" style="top:0.4rem; right:0.5rem;">
+                                <button class="icon-btn btn-delete" data-id="${data.id}" data-col="nutrition">🗑️</button>
+                            </div>
+                            <div class="history-item-details">🍽️ ${data.meal} (${data.calories || 0} kcal | E:${data.protein || 0}g)</div>
+                        </div>`;
                     });
 
                     const diff = dayCals - currentTDEE;
