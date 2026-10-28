@@ -387,7 +387,7 @@
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 6.5 - Archiv-Löschfunktion & Datumsvalidierung</div>
+        <div class="version-badge">Version 6.6 - Gewichts-Log & 7-Tage-Schnitt Kurve</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -496,6 +496,19 @@
 
         <!-- Nutrition View -->
         <div class="view" id="view-nutrition">
+            <!-- Körpergewicht Log Card -->
+            <div class="card">
+                <h2>⚖️ Körpergewicht heute</h2>
+                <div class="row" style="align-items: flex-end;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="daily-weight-input">Gewicht (kg)</label>
+                        <input type="number" id="daily-weight-input" placeholder="z.B. 93.4" step="0.1">
+                    </div>
+                    <button class="btn" id="btn-save-weight" style="margin-top:0; width:auto; padding: 0.75rem 1.25rem;">Gewicht speichern</button>
+                </div>
+                <div id="weight-status-text" style="font-size:0.8rem; color:var(--primary-color); margin-top:0.5rem;"></div>
+            </div>
+
             <div class="card">
                 <h2>Lebensmittel erfassen</h2>
                 
@@ -739,7 +752,7 @@
                 <div class="row">
                     <div class="form-group">
                         <label for="calc-weight">Gewicht (kg)</label>
-                        <input type="number" id="calc-weight" value="93">
+                        <input type="number" id="calc-weight" value="93" step="0.1">
                     </div>
                     <div class="form-group">
                         <label for="calc-height">Größe (cm)</label>
@@ -770,34 +783,53 @@
             </div>
         </div>
 
-        <!-- Progress View (Fortschritts-Analyse) -->
+        <!-- Progress View (Fortschritts-Analyse mit Sub-Tabs) -->
         <div class="view" id="view-progress">
             <div class="card">
-                <h2>📈 Kraftfortschritt</h2>
-                <div class="form-group">
-                    <label for="progress-gym-select">Fitnessstudio wählen</label>
-                    <select id="progress-gym-select">
-                        <option value="">Lade Studios...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="progress-exercise-select">Übung wählen</label>
-                    <select id="progress-exercise-select">
-                        <option value="">Lade Übungen...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="progress-metric-select">Auswertung nach</label>
-                    <select id="progress-metric-select">
-                        <option value="maxWeight">Maximalgewicht (kg)</option>
-                        <option value="totalVolume">Gesamtvolumen (kg × Wdh)</option>
-                    </select>
+                <h2>📈 Visuelle Auswertung</h2>
+                <div class="sub-tabs">
+                    <button class="sub-tab-btn active" id="btn-progress-sub-strength">🏋️ Kraftwerte</button>
+                    <button class="sub-tab-btn" id="btn-progress-sub-weight">⚖️ Körpergewicht</button>
                 </div>
 
-                <div style="position: relative; width:100%; height:260px; margin-top:1rem;">
-                    <canvas id="progress-chart"></canvas>
+                <!-- Sub-View: Kraftwerte -->
+                <div id="progress-subview-strength" style="display:block;">
+                    <div class="form-group">
+                        <label for="progress-gym-select">Fitnessstudio wählen</label>
+                        <select id="progress-gym-select">
+                            <option value="">Lade Studios...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="progress-exercise-select">Übung wählen</label>
+                        <select id="progress-exercise-select">
+                            <option value="">Lade Übungen...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="progress-metric-select">Auswertung nach</label>
+                        <select id="progress-metric-select">
+                            <option value="maxWeight">Maximalgewicht (kg)</option>
+                            <option value="totalVolume">Gesamtvolumen (kg × Wdh)</option>
+                        </select>
+                    </div>
+
+                    <div style="position: relative; width:100%; height:260px; margin-top:1rem;">
+                        <canvas id="progress-chart"></canvas>
+                    </div>
+                    <div id="progress-info-text" style="text-align:center; font-size:0.85rem; color:var(--text-secondary); margin-top:0.75rem;"></div>
                 </div>
-                <div id="progress-info-text" style="text-align:center; font-size:0.85rem; color:var(--text-secondary); margin-top:0.75rem;"></div>
+
+                <!-- Sub-View: Körpergewicht -->
+                <div id="progress-subview-weight" style="display:none;">
+                    <div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem; text-align:center;">
+                        Tägliches Messgewicht vs. geglätteter 7-Tage-Durchschnitt
+                    </div>
+                    <div style="position: relative; width:100%; height:260px;">
+                        <canvas id="weight-chart"></canvas>
+                    </div>
+                    <div id="weight-info-text" style="text-align:center; font-size:0.85rem; color:var(--text-secondary); margin-top:0.75rem;"></div>
+                </div>
             </div>
         </div>
 
@@ -842,13 +874,14 @@
         let targetCarbs = 319;
         let currentDayStats = { cals: 0, protein: 0 };
         let progressChart = null;
+        let weightChart = null;
         let cachedProgressWorkouts = [];
+        let cachedWeights = [];
 
         // --- Datums-Hilfsfunktionen & Validierung ---
         const dateInput = document.getElementById('global-date');
         const getTodayString = () => new Date().toISOString().split('T')[0];
 
-        // Verlässliches Initialisieren des tagesaktuellen Datums
         dateInput.value = getTodayString();
 
         function validateDate() {
@@ -860,6 +893,37 @@
             }
             return true;
         }
+
+        // --- Gewichts-Log (Körpergewicht heute) ---
+        document.getElementById('btn-save-weight').addEventListener('click', async (e) => {
+            if (!validateDate()) return;
+            const weightVal = Number(document.getElementById('daily-weight-input').value);
+            if (!weightVal || weightVal <= 0 || weightVal > 300) {
+                return alert("Bitte ein gültiges Körpergewicht eingeben.");
+            }
+
+            try {
+                // Vorherige Gewichtseinträge für dieses Datum suchen
+                const qWeight = query(collection(db, "weights"), where("date", "==", dateInput.value));
+                const snap = await getDocs(qWeight);
+                
+                // Falls bereits eingetragen, alten überschreiben
+                snap.forEach(async (docSnap) => {
+                    await deleteDoc(doc(db, "weights", docSnap.id));
+                });
+
+                await addDoc(collection(db, "weights"), {
+                    date: dateInput.value,
+                    weight: weightVal,
+                    timestamp: new Date()
+                });
+
+                triggerButtonFeedback(e.currentTarget);
+                loadDayData();
+            } catch (err) {
+                console.error("Fehler beim Speichern des Gewichts:", err);
+            }
+        });
 
         // --- Standard-Schnell-Logs & LocalStorage Logik ---
         const DEFAULT_QUICK_LOGS = {
@@ -916,13 +980,11 @@
             ['breakfast', 'lunch'].forEach(type => {
                 updateQuickLogUI(type);
 
-                // Edit Button
                 document.getElementById(`btn-edit-quick-${type}`).addEventListener('click', () => {
                     const panel = document.getElementById(`panel-quick-${type}`);
                     panel.classList.toggle('active');
                 });
 
-                // Schnell-Log Hauptbutton
                 document.getElementById(`btn-quick-${type}`).addEventListener('click', async (e) => {
                     if (!validateDate()) return;
                     const cfg = getQuickLogConfig(type);
@@ -930,7 +992,6 @@
                     triggerButtonFeedback(e.currentTarget);
                 });
 
-                // Vorlage speichern
                 document.getElementById(`btn-save-ql-${type}-preset`).addEventListener('click', (e) => {
                     const newConfig = {
                         name: document.getElementById(`ql-${type}-name`).value.trim() || DEFAULT_QUICK_LOGS[type].name,
@@ -944,7 +1005,6 @@
                     document.getElementById(`panel-quick-${type}`).classList.remove('active');
                 });
 
-                // Loggen & Speichern
                 document.getElementById(`btn-log-ql-${type}-direct`).addEventListener('click', async (e) => {
                     if (!validateDate()) return;
                     const newConfig = {
@@ -962,7 +1022,6 @@
             });
         }
 
-        // --- Visuelles Feedback beim Speichern ---
         function triggerButtonFeedback(btn) {
             if (!btn) return;
             const originalText = btn.innerText;
@@ -1344,7 +1403,7 @@
                 Math.round(kcal100g * factor),
                 Math.round((p100g * factor) * 10) / 10,
                 Math.round((c100g * factor) * 10) / 10,
-                Math.round((f100g * factor) * 10) / 10
+                Math.round((fat100g * factor) * 10) / 10
             );
 
             triggerButtonFeedback(e.currentTarget);
@@ -1541,7 +1600,24 @@
             const workoutList = document.getElementById('workout-list');
             const nutritionList = document.getElementById('nutrition-list');
             const summaryBox = document.getElementById('daily-calories-summary');
+            const dailyWeightInput = document.getElementById('daily-weight-input');
+            const calcWeightInput = document.getElementById('calc-weight');
+            const weightStatusText = document.getElementById('weight-status-text');
             
+            // 1. Gewicht für ausgewählten Tag laden
+            const qWeight = query(collection(db, "weights"), where("date", "==", selectedDate));
+            const weightSnap = await getDocs(qWeight);
+            if (!weightSnap.empty) {
+                const wData = weightSnap.docs[0].data();
+                dailyWeightInput.value = wData.weight;
+                calcWeightInput.value = wData.weight;
+                weightStatusText.innerHTML = `✔ Geloggt für ${new Date(selectedDate).toLocaleDateString('de-DE')}: <b>${wData.weight} kg</b>`;
+            } else {
+                dailyWeightInput.value = '';
+                weightStatusText.innerText = `Für dieses Datum ist noch kein Gewicht geloggt.`;
+            }
+
+            // 2. Workouts laden
             const qWorkouts = query(collection(db, "workouts"), where("date", "==", selectedDate));
             const workoutSnap = await getDocs(qWorkouts);
             let workoutsHtml = '';
@@ -1583,7 +1659,8 @@
             });
             workoutList.innerHTML = workoutsHtml || '<div class="history-item-details">Kein Training für dieses Datum.</div>';
 
-            const weight = Number(document.getElementById('calc-weight').value) || 93;
+            // 3. TDEE Bedarfsrechner
+            const weight = Number(calcWeightInput.value) || 93;
             const height = Number(document.getElementById('calc-height').value) || 190;
             const age = Number(document.getElementById('calc-age').value) || 26;
             const workActivity = document.getElementById('calc-work-activity').value;
@@ -1613,6 +1690,7 @@
                 Ziele: Eiweiß: <b>${targetProtein}g</b> | Fett: <b>${targetFat}g</b> | Kohlenhydrate: <b>${targetCarbs}g</b>
             `;
 
+            // 4. Ernährung laden
             const qNutrition = query(collection(db, "nutrition"), where("date", "==", selectedDate));
             const nutritionSnap = await getDocs(qNutrition);
             let nutritionHtml = '';
@@ -1674,7 +1752,28 @@
                                    `Eiweiß: <b>${pRounded}g / ${targetProtein}g</b> | Kohlenhydrate: <b>${cRounded}g / ${targetCarbs}g</b> | Fett: <b>${fRounded}g / ${targetFat}g</b>`;
         }
 
-        // --- Logik für den "Fortschritt"-Reiter (Chart.js & Filter) ---
+        // --- Logik für den "Fortschritt"-Reiter (Sub-Tabs & Chart.js) ---
+        const btnSubStrength = document.getElementById('btn-progress-sub-strength');
+        const btnSubWeight = document.getElementById('btn-progress-sub-weight');
+        const subViewStrength = document.getElementById('progress-subview-strength');
+        const subViewWeight = document.getElementById('progress-subview-weight');
+
+        btnSubStrength.addEventListener('click', () => {
+            btnSubStrength.classList.add('active');
+            btnSubWeight.classList.remove('active');
+            subViewStrength.style.display = 'block';
+            subViewWeight.style.display = 'none';
+            loadProgressData();
+        });
+
+        btnSubWeight.addEventListener('click', () => {
+            btnSubWeight.classList.add('active');
+            btnSubStrength.classList.remove('active');
+            subViewWeight.style.display = 'block';
+            subViewStrength.style.display = 'none';
+            loadWeightProgressData();
+        });
+
         async function loadProgressData() {
             const q = query(collection(db, "workouts"), where("category", "==", "strength"));
             const snap = await getDocs(q);
@@ -1835,10 +1934,124 @@
             });
         }
 
+        // --- Körpergewicht-Fortschritt & 7-Tage-Schnitt Kurve ---
+        async function loadWeightProgressData() {
+            const q = query(collection(db, "weights"));
+            const snap = await getDocs(q);
+            cachedWeights = [];
+
+            snap.forEach(d => {
+                cachedWeights.push({ id: d.id, ...d.data() });
+            });
+
+            // Chronologisch nach Datum sortieren
+            cachedWeights.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+            renderWeightChart();
+        }
+
+        function renderWeightChart() {
+            const infoText = document.getElementById('weight-info-text');
+
+            if (cachedWeights.length === 0) {
+                if (weightChart) weightChart.destroy();
+                infoText.innerText = "Noch keine Gewichtseinträge vorhanden.";
+                return;
+            }
+
+            const labels = [];
+            const dailyData = [];
+            const movingAvgData = [];
+
+            cachedWeights.forEach((w, idx) => {
+                const dateObj = new Date(w.date);
+                const dateFormatted = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                labels.push(dateFormatted);
+                dailyData.push(w.weight);
+
+                // Gleitenden 7-Tage-Durchschnitt berechnen
+                const startIdx = Math.max(0, idx - 6);
+                const windowValues = dailyData.slice(startIdx, idx + 1);
+                const sum = windowValues.reduce((acc, val) => acc + val, 0);
+                const avg = Math.round((sum / windowValues.length) * 100) / 100;
+                movingAvgData.push(avg);
+            });
+
+            const currentWeight = dailyData[dailyData.length - 1];
+            const current7DayAvg = movingAvgData[movingAvgData.length - 1];
+            infoText.innerHTML = `Einträge: <b>${cachedWeights.length}</b> | Letztes Gewicht: <b>${currentWeight} kg</b> | 7-Tage-Schnitt: <b>${current7DayAvg} kg</b>`;
+
+            const ctx = document.getElementById('weight-chart').getContext('2d');
+            if (weightChart) {
+                weightChart.destroy();
+            }
+
+            weightChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Tägliches Gewicht (kg)',
+                            data: dailyData,
+                            borderColor: 'rgba(255, 152, 0, 0.6)',
+                            backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                            borderWidth: 1.5,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#ff9800',
+                            tension: 0
+                        },
+                        {
+                            label: '7-Tage-Schnitt (kg)',
+                            data: movingAvgData,
+                            borderColor: '#03dac6',
+                            backgroundColor: 'rgba(3, 218, 198, 0.2)',
+                            borderWidth: 3.5,
+                            pointRadius: 0,
+                            pointHoverRadius: 6,
+                            fill: false,
+                            tension: 0.35
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e0e0e0',
+                                font: { family: '-apple-system, sans-serif', size: 11, weight: 'bold' }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${context.dataset.label}: ${context.parsed.y} kg`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        y: {
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
         document.getElementById('progress-gym-select').addEventListener('change', populateProgressExerciseFilter);
         document.getElementById('progress-exercise-select').addEventListener('change', renderProgressChart);
         document.getElementById('progress-metric-select').addEventListener('change', renderProgressChart);
 
+        // --- Archiv Laden inklusive Körpergewicht ---
         async function loadArchiveData() {
             const archiveList = document.getElementById('archive-list');
             const selectedGymFilter = document.getElementById('archive-gym-filter').value;
@@ -1846,22 +2059,29 @@
 
             const qWorkouts = query(collection(db, "workouts"));
             const qNutrition = query(collection(db, "nutrition"));
+            const qWeights = query(collection(db, "weights"));
             
-            const [wSnap, nSnap] = await Promise.all([getDocs(qWorkouts), getDocs(qNutrition)]);
+            const [wSnap, nSnap, weightSnap] = await Promise.all([getDocs(qWorkouts), getDocs(qNutrition), getDocs(qWeights)]);
             const grouped = {};
 
             wSnap.forEach(docSnap => {
                 const data = docSnap.data();
                 if (selectedGymFilter !== "ALL" && data.gym !== selectedGymFilter) return;
-                if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], gym: "" };
+                if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], weight: null, gym: "" };
                 grouped[data.date].workouts.push({ id: docSnap.id, ...data });
                 if (data.gym) grouped[data.date].gym = data.gym;
             });
 
             nSnap.forEach(docSnap => {
                 const data = docSnap.data();
-                if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], gym: "" };
+                if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], weight: null, gym: "" };
                 grouped[data.date].nutrition.push({ id: docSnap.id, ...data });
+            });
+
+            weightSnap.forEach(docSnap => {
+                const data = docSnap.data();
+                if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], weight: null, gym: "" };
+                grouped[data.date].weight = { id: docSnap.id, ...data };
             });
 
             const allWorkoutsList = [];
@@ -1898,6 +2118,15 @@
                 html += `<details>
                     <summary>📅 ${dateString}${gymTitle}</summary>
                     <div class="details-content">`;
+
+                if (dayData.weight) {
+                    html += `<div class="history-item" style="padding:0.5rem 2.5rem 0.5rem 0.75rem; margin-bottom:0.4rem; border-left-color: var(--warning-color);">
+                        <div class="action-btns" style="top:0.4rem; right:0.5rem;">
+                            <button class="icon-btn btn-delete" data-id="${dayData.weight.id}" data-col="weights">🗑️</button>
+                        </div>
+                        <div class="history-item-details">⚖️ <b>Körpergewicht:</b> ${dayData.weight.weight} kg</div>
+                    </div>`;
+                }
                 
                 if (dayData.workouts.length > 0) {
                     html += `<b>Workouts:</b>`;
@@ -2000,7 +2229,10 @@
                     await deleteDoc(doc(db, col, id));
                     loadDayData(); 
                     if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
-                    if (document.getElementById('view-progress').classList.contains('active')) loadProgressData();
+                    if (document.getElementById('view-progress').classList.contains('active')) {
+                        if (btnSubStrength.classList.contains('active')) loadProgressData();
+                        else loadWeightProgressData();
+                    }
                 }
             }
 
