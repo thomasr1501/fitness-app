@@ -387,7 +387,7 @@
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 6.6 - Gewichts-Log & 7-Tage-Schnitt Kurve</div>
+        <div class="version-badge">Version 6.6.1 - Gewichts-Log, 7-Tage-Schnitt & OFF Fix</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -922,6 +922,7 @@
                 loadDayData();
             } catch (err) {
                 console.error("Fehler beim Speichern des Gewichts:", err);
+                alert("Speichern fehlgeschlagen: " + err.message);
             }
         });
 
@@ -1312,7 +1313,10 @@
                     timestamp: new Date()
                 });
                 loadDayData();
-            } catch (e) { console.error("Fehler:", e); }
+            } catch (e) { 
+                console.error("Fehler beim Speichern der Ernährung:", e);
+                alert("Speichern fehlgeschlagen: " + e.message);
+            }
         };
 
         document.addEventListener('click', async (e) => {
@@ -1403,7 +1407,7 @@
                 Math.round(kcal100g * factor),
                 Math.round((p100g * factor) * 10) / 10,
                 Math.round((c100g * factor) * 10) / 10,
-                Math.round((fat100g * factor) * 10) / 10
+                Math.round((f100g * factor) * 10) / 10
             );
 
             triggerButtonFeedback(e.currentTarget);
@@ -1452,7 +1456,7 @@
 
         document.getElementById('archive-gym-filter').addEventListener('change', () => loadArchiveData());
 
-        // --- OpenFoodFacts API Suche ---
+        // --- OpenFoodFacts API Suche (Korrektur für Scope & 503) ---
         let searchTimeout;
         const foodSearchInput = document.getElementById('food-search');
         const resultsBox = document.getElementById('search-results-box');
@@ -1467,20 +1471,31 @@
 
             searchTimeout = setTimeout(async () => {
                 try {
-                    const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(queryText)}&search_simple=1&action=process&json=1`);
+                    const apiUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(queryText)}&search_simple=1&action=process&json=1`;
+                    
+                    const res = await fetch(apiUrl, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    if (!res.ok) throw new Error(`Server-Fehler HTTP ${res.status}`);
                     const data = await res.json();
                     
                     if (data.products && data.products.length > 0) {
                         resultsBox.innerHTML = data.products.slice(0, 5).map(p => {
                             const name = p.product_name || "Unbekanntes Produkt";
                             const nut = p.nutriments || {};
-                            const kcal100g = nut['energy-kcal_100g'] || nut['energy-kcal'] || 0;
-                            const protein100g = nut['proteins_100g'] || 0;
-                            const carbs100g = nut['carbohydrates_100g'] || 0;
-                            const fat100g = nut['fat_100g'] || 0;
+                            const kcal = nut['energy-kcal_100g'] || nut['energy-kcal_value'] || nut['energy-kcal'] || 0;
+                            const protein = nut['proteins_100g'] || nut['proteins_value'] || 0;
+                            const carbs = nut['carbohydrates_100g'] || nut['carbohydrates_value'] || 0;
+                            const fat = nut['fat_100g'] || nut['fat_value'] || 0;
 
-                            return `<div class="search-result-item" data-name="${name}" data-kcal="${kcal100g}" data-protein="${protein100g}" data-carbs="${carbs100g}" data-fat="${fat100g}">
-                                <b>${name}</b> (${kcal100g} kcal | E: ${protein100g}g / 100g)
+                            return `<div class="search-result-item" 
+                                data-name="${name.replace(/"/g, '&quot;')}" 
+                                data-kcal="${kcal}" 
+                                data-protein="${protein}" 
+                                data-carbs="${carbs}" 
+                                data-fat="${fat}">
+                                <b>${name}</b> (${kcal} kcal | E: ${protein}g / 100g)
                             </div>`;
                         }).join('');
                         resultsBox.style.display = 'block';
@@ -1488,7 +1503,11 @@
                         resultsBox.innerHTML = `<div class="search-result-item">Keine Produkte gefunden</div>`;
                         resultsBox.style.display = 'block';
                     }
-                } catch(err) { console.error("API Fehler:", err); }
+                } catch(err) { 
+                    console.error("API Fehler:", err); 
+                    resultsBox.innerHTML = `<div class="search-result-item" style="color:var(--danger-color); padding:0.5rem;">⚠️ OpenFoodFacts überlastet (503). Bitte Schnellstart oder Manuell nutzen.</div>`;
+                    resultsBox.style.display = 'block';
+                }
             }, 400);
         });
 
@@ -1497,10 +1516,10 @@
             if (!item || !item.dataset.name) return;
 
             document.getElementById('selected-food-name').value = item.dataset.name;
-            document.getElementById('selected-food-kcal').value = item.dataset.kcal;
-            document.getElementById('selected-food-protein').value = item.dataset.protein;
-            document.getElementById('selected-food-carbs').value = item.dataset.carbs;
-            document.getElementById('selected-food-fat').value = item.dataset.fat;
+            document.getElementById('selected-food-kcal').value = item.dataset.kcal || 0;
+            document.getElementById('selected-food-protein').value = item.dataset.protein || 0;
+            document.getElementById('selected-food-carbs').value = item.dataset.carbs || 0;
+            document.getElementById('selected-food-fat').value = item.dataset.fat || 0;
 
             document.getElementById('selected-food-display').innerText = `Ausgewählt: ${item.dataset.name} (${item.dataset.kcal} kcal/100g)`;
             foodSearchInput.value = item.dataset.name;
@@ -1532,7 +1551,10 @@
                 document.getElementById('cardio-incline').value = '';
                 document.getElementById('cardio-level').value = '';
                 loadDayData();
-            } catch (e) { console.error("Fehler:", e); }
+            } catch (e) { 
+                console.error("Fehler beim Speichern:", e);
+                alert("Speichern fehlgeschlagen: " + e.message);
+            }
         });
 
         let currentSets = [];
@@ -1592,7 +1614,10 @@
                     exerciseSelect.selectedIndex = 0;
                 }
                 loadDayData();
-            } catch (e) { console.error("Fehler:", e); }
+            } catch (e) { 
+                console.error("Fehler beim Speichern:", e);
+                alert("Speichern fehlgeschlagen: " + e.message);
+            }
         });
 
         async function loadDayData() {
