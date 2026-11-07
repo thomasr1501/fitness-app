@@ -3,6 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- PWA / App Installation Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121212">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
+    
     <title>Fitness & Ernährungs-Tracker</title>
     <!-- Chart.js CDN für visuelle Auswertung -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -387,7 +394,7 @@
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 6.6.1 - Gewichts-Log, 7-Tage-Schnitt & OFF Fix</div>
+        <div class="version-badge">Version 7.0 - PWA, Offline Modus & App-Icon</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -783,7 +790,7 @@
             </div>
         </div>
 
-        <!-- Progress View (Fortschritts-Analyse mit Sub-Tabs) -->
+        <!-- Progress View -->
         <div class="view" id="view-progress">
             <div class="card">
                 <h2>📈 Visuelle Auswertung</h2>
@@ -851,10 +858,11 @@
         </div>
     </div>
 
-    <!-- Firebase SDK & Logik -->
+    <!-- Firebase SDK, Offline Modus & Logik -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, query, where, deleteDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+        // enableIndexedDbPersistence für den Offline-Modus importiert
+        import { getFirestore, collection, addDoc, getDocs, query, where, deleteDoc, updateDoc, doc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyADXyu1B6sXNR0LdG-K75V3JpU9VFTfNGc",
@@ -867,6 +875,24 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+
+        // --- PWA: Offline Database Persistenz aktivieren ---
+        enableIndexedDbPersistence(db).catch((err) => {
+            if (err.code == 'failed-precondition') {
+                console.warn('Offline-Persistenz: App ist in mehreren Tabs geöffnet.');
+            } else if (err.code == 'unimplemented') {
+                console.warn('Browser unterstützt keine lokale Persistenz.');
+            }
+        });
+
+        // --- PWA: Service Worker für Homescreen-Installation ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker erfolgreich registriert.', reg.scope))
+                    .catch(err => console.error('Service Worker Fehler:', err));
+            });
+        }
 
         let currentTDEE = 2850;
         let targetProtein = 186;
@@ -903,11 +929,9 @@
             }
 
             try {
-                // Vorherige Gewichtseinträge für dieses Datum suchen
                 const qWeight = query(collection(db, "weights"), where("date", "==", dateInput.value));
                 const snap = await getDocs(qWeight);
                 
-                // Falls bereits eingetragen, alten überschreiben
                 snap.forEach(async (docSnap) => {
                     await deleteDoc(doc(db, "weights", docSnap.id));
                 });
@@ -947,7 +971,7 @@
         function getQuickLogConfig(type) {
             const saved = localStorage.getItem(`ql_preset_${type}`);
             if (saved) {
-                try { return JSON.parse(saved); } catch (e) { console.error("Fehler beim Laden von QuickLog:", e); }
+                try { return JSON.parse(saved); } catch (e) { console.error("Fehler beim Laden:", e); }
             }
             return DEFAULT_QUICK_LOGS[type];
         }
@@ -960,9 +984,7 @@
         function updateQuickLogUI(type) {
             const config = getQuickLogConfig(type);
             const labelEl = document.getElementById(`label-quick-${type}`);
-            if (labelEl) {
-                labelEl.innerText = `${config.name} (~${config.cals} kcal)`;
-            }
+            if (labelEl) labelEl.innerText = `${config.name} (~${config.cals} kcal)`;
 
             const nameInput = document.getElementById(`ql-${type}-name`);
             const calsInput = document.getElementById(`ql-${type}-cals`);
@@ -1036,7 +1058,6 @@
             }, 2000);
         }
 
-        // Eingabe-Modi (API / Schnellstart / Manuell / Barcode)
         const modeBtns = {
             api: document.getElementById('btn-mode-api'),
             staples: document.getElementById('btn-mode-staples'),
@@ -1058,9 +1079,7 @@
                 });
                 modeBtns[mode].classList.add('active');
                 modeViews[mode].classList.add('active');
-                if (mode !== 'barcode') {
-                    stopScanner();
-                }
+                if (mode !== 'barcode') stopScanner();
             });
         });
 
@@ -1074,10 +1093,9 @@
 
         document.getElementById('btn-start-scanner').addEventListener('click', async () => {
             if (!('BarcodeDetector' in window)) {
-                alert("Dein Browser unterstützt den Barcode-Scanner nicht direkt. Bitte nutze Chrome auf Android oder Safari auf iOS.");
+                alert("Dein Browser unterstützt den Scanner nicht direkt.");
                 return;
             }
-
             try {
                 scannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 videoElement.srcObject = scannerStream;
@@ -1096,14 +1114,12 @@
                                 stopScanner();
                                 fetchProductByBarcode(code);
                             }
-                        } catch (err) {
-                            console.error("Scanner Fehler:", err);
-                        }
+                        } catch (err) { console.error("Scanner Fehler:", err); }
                     }
                 }, 300);
             } catch (err) {
                 console.error("Kamera Zugriff verweigert:", err);
-                alert("Kamera-Zugriff fehlgeschlagen oder nicht erlaubt.");
+                alert("Kamera-Zugriff fehlgeschlagen.");
             }
         });
 
@@ -1113,22 +1129,12 @@
         });
 
         function stopScanner() {
-            if (scannerInterval) {
-                clearInterval(scannerInterval);
-                scannerInterval = null;
-            }
-            if (scannerStream) {
-                scannerStream.getTracks().forEach(track => {
-                    track.stop();
-                });
-                scannerStream = null;
-            }
-            if (videoElement) {
-                videoElement.srcObject = null;
-            }
-            if (scannerContainer) {
-                scannerContainer.style.display = 'none';
-            }
+            if (scannerInterval) clearInterval(scannerInterval);
+            if (scannerStream) scannerStream.getTracks().forEach(t => t.stop());
+            scannerInterval = null;
+            scannerStream = null;
+            if (videoElement) videoElement.srcObject = null;
+            if (scannerContainer) scannerContainer.style.display = 'none';
         }
 
         async function fetchProductByBarcode(barcode) {
@@ -1176,38 +1182,30 @@
             if (!amount || amount <= 0) return alert("Bitte gültige Menge eingeben.");
 
             const factor = amount / 100;
-            await saveNutrition(
-                `${name} (${amount}g)`,
-                Math.round(kcal100g * factor),
-                Math.round((protein100g * factor) * 10) / 10,
-                Math.round((carbs100g * factor) * 10) / 10,
-                Math.round((fat100g * factor) * 10) / 10
-            );
+            await saveNutrition(`${name} (${amount}g)`,
+                Math.round(kcal100g * factor), Math.round((protein100g * factor) * 10) / 10,
+                Math.round((carbs100g * factor) * 10) / 10, Math.round((fat100g * factor) * 10) / 10);
 
             triggerButtonFeedback(e.currentTarget);
             scannedInfo.innerText = "Erfolgreich hinzugefügt!";
             barcodeAmountGroup.style.display = 'none';
         });
 
-        // Abendessen Modi (Auto vs Manuell)
+        // Abendessen Modi
         const dinnerAutoBtn = document.getElementById('btn-dinner-auto');
         const dinnerManualBtn = document.getElementById('btn-dinner-manual');
         const dinnerModeAuto = document.getElementById('dinner-mode-auto');
         const dinnerModeManual = document.getElementById('dinner-mode-manual');
 
         dinnerAutoBtn.addEventListener('click', () => {
-            dinnerAutoBtn.classList.add('active');
-            dinnerManualBtn.classList.remove('active');
-            dinnerModeAuto.classList.add('active');
-            dinnerModeManual.classList.remove('active');
+            dinnerAutoBtn.classList.add('active'); dinnerManualBtn.classList.remove('active');
+            dinnerModeAuto.classList.add('active'); dinnerModeManual.classList.remove('active');
             document.getElementById('recipe-container').innerHTML = '';
         });
 
         dinnerManualBtn.addEventListener('click', () => {
-            dinnerManualBtn.classList.add('active');
-            dinnerAutoBtn.classList.remove('active');
-            dinnerModeManual.classList.add('active');
-            dinnerModeAuto.classList.remove('active');
+            dinnerManualBtn.classList.add('active'); dinnerAutoBtn.classList.remove('active');
+            dinnerModeManual.classList.add('active'); dinnerModeAuto.classList.remove('active');
             renderSelectedRecipeFromDropdown();
         });
 
@@ -1221,17 +1219,7 @@
             { name: "Puten-Wraps mit Salat & Joghurt-Dip", calories: 540, protein: 48, carbs: 52, fat: 16, ingredients: ["2 Vollkorn-Wraps", "180g Putenbrust", "Eisbergsalat, Tomate", "150g griech. Joghurt (0%)"], prep: "Putenbrust anbraten. Joghurt würzen. Wraps erwärmen, mit Salat, Fleisch und Dip füllen und rollen." },
             { name: "Schnelles Rührei-Vollkornbrot", calories: 380, protein: 26, carbs: 32, fat: 16, ingredients: ["3 Eier", "2 Scheiben Vollkornbrot", "1 Scheibe Schinken", "Schnittlauch"], prep: "Eier als Rührei zubereiten. Auf den mit Schinken belegten Vollkornbrotscheiben anrichten." },
             { name: "Griechischer Bauernsalat mit Feta", calories: 350, protein: 18, carbs: 12, fat: 26, ingredients: ["150g Feta (fettreduziert)", "Gurke, Tomaten, Oliven, rote Zwiebel", "1 EL Olivenöl & Essig"], prep: "Gemüse würfeln, Oliven und Feta dazugeben. Mit Olivenöl, Essig, Salz, Pfeffer und Oregano marinieren." },
-            { name: "Hüttenkäse-Vollkorn-Stulle", calories: 320, protein: 30, carbs: 35, fat: 6, ingredients: ["200g Körniger Frischkäse", "2 Scheiben Pumpernickel", "1 Bund Radieschen", "Kresse"], prep: "Pumpernickel mit körnigem Frischkäse bestreichen. Radieschenscheiben darauflegen und mit Kresse toppen." },
-            { name: "Puten-Reis-Pfanne mit Tomatensauce", calories: 580, protein: 52, carbs: 60, fat: 12, ingredients: ["200g Putenbrust", "100g Reis", "150g Passierte Tomaten", "1 Zwiebel", "1 TL Olivenöl"], prep: "Reis kochen. Putenbrust mit Zwiebeln anbraten, passierte Tomaten und Gewürze einrühren, mit Reis servieren." },
-            { name: "Thunfisch-Vollkorn-Sandwich", calories: 450, protein: 38, carbs: 40, fat: 14, ingredients: ["2 Scheiben Vollkornbrot", "1 Dose Thunfisch (150g)", "2 EL Magerquark (als Mayo-Ersatz)", "Gurkenscheiben"], prep: "Thunfisch mit Magerquark und Gewürzen vermengen. Auf das Vollkornbrot geben und mit Gurken belegen." },
-            { name: "Gegrilltes Rindersteak mit Spinatsalat", calories: 610, protein: 58, carbs: 10, fat: 38, ingredients: ["250g Rumpsteak", "150g Babyspinat", "50g Feta", "1 EL Olivenöl & Balsamico"], prep: "Spinat mit Olivenöl und Balsamico marinieren, Feta bröseln. Steak braten und auf dem Salat anrichten." },
-            { name: "Hähnchenbrust mit Ofengemüse", calories: 490, protein: 52, carbs: 35, fat: 12, ingredients: ["220g Hähnchenbrust", "300g Kartoffeln oder Süßkartoffeln", "1 Zucchini", "1 EL Olivenöl"], prep: "Gemüse und Kartoffeln in Würfel schneiden, mit Olivenöl und Gewürzen im Ofen bei 200°C backen. Hähnchen anbraten." },
-            { name: "Protein-Haferbrei (Herzhaft mit Ei)", calories: 410, protein: 32, carbs: 48, fat: 10, ingredients: ["80g Haferflocken", "250ml Milch 1.5%", "1 Ei", "1 Prise Salz & Pfeffer"], prep: "Haferflocken mit Milch aufkochen. Kurz vor Ende ein Ei unterrühren und kräftig cremig rühren, kräftig würzen." },
-            { name: "Lachs-Spinat-Pfanne", calories: 590, protein: 44, carbs: 12, fat: 40, ingredients: ["200g Lachsfilet", "200g Babyspinat", "1 Knoblauchzehe", "1 TL Olivenöl"], prep: "Knoblauch in Olivenöl anbraten, Spinat zusammenfallen lassen. Lachsfilet darauflegen und mitgaren lassen." },
-            { name: "Puten-Spieße mit Gurkensalat", calories: 420, protein: 50, carbs: 14, fat: 18, ingredients: ["200g Putenbrust (in Würfeln)", "1 große Gurke", "150g griech. Joghurt (0%)", "Dill & Knoblauch"], prep: "Putenwürfel anbraten. Joghurt mit Gurkenraspeln, Dill und Knoblauch zu einem Zaziki verrühren und dazu essen." },
-            { name: "Eier-Omelett mit Tomate & Mozzarella-Light", calories: 460, protein: 36, carbs: 10, fat: 30, ingredients: ["4 Eier", "1 Tomate", "60g Light-Mozzarella", "Basilikum"], prep: "Eier verquirlen. In der Pfanne stocken lassen, Tomatenscheiben und Mozzarella darauflegen, schmelzen lassen." },
-            { name: "Quark-Pancakes mit Beeren", calories: 390, protein: 35, carbs: 42, fat: 6, ingredients: ["150g Magerquark", "1 Ei", "50g Haferflocken", "50g Beeren"], prep: "Quark, Ei und Haferflocken mixen. Kleine Pancakes in einer beschichteten Pfanne ausbacken und mit Beeren servieren." },
-            { name: "Einfaches Rinder-Chili (Low Carb)", calories: 550, protein: 58, carbs: 22, fat: 24, ingredients: ["200g Rinderhackfleisch (mager)", "150g passierte Tomaten", "1 kleine Dose Kidneybohnen (120g)", "Paprikapulver"], prep: "Rinderhack anbraten, passierte Tomaten und abgespülte Kidneybohnen dazugeben, 15 Minuten köcheln lassen." }
+            { name: "Hüttenkäse-Vollkorn-Stulle", calories: 320, protein: 30, carbs: 35, fat: 6, ingredients: ["200g Körniger Frischkäse", "2 Scheiben Pumpernickel", "1 Bund Radieschen", "Kresse"], prep: "Pumpernickel mit körnigem Frischkäse bestreichen. Radieschenscheiben darauflegen und mit Kresse toppen." }
         ];
 
         const recipeDropdown = document.getElementById('recipe-select-dropdown');
@@ -1246,15 +1234,12 @@
 
         function renderSelectedRecipeFromDropdown() {
             if (!dinnerManualBtn.classList.contains('active')) return;
-            const index = recipeDropdown.value;
-            const rec = recipeDatabase[index];
-            displayRecipeCard(rec);
+            displayRecipeCard(recipeDatabase[recipeDropdown.value]);
         }
 
         document.getElementById('btn-recommend-recipe').addEventListener('click', () => {
             const missingCals = currentTDEE - currentDayStats.cals;
             const missingProtein = targetProtein - currentDayStats.protein;
-
             let bestRecipe = recipeDatabase[0];
             let minScore = Infinity;
 
@@ -1262,13 +1247,8 @@
                 const calsDiff = Math.abs(recipe.calories - Math.max(250, missingCals));
                 const proteinBonus = recipe.protein >= 40 && missingProtein > 20 ? -150 : 0;
                 const score = calsDiff + proteinBonus;
-
-                if (score < minScore) {
-                    minScore = score;
-                    bestRecipe = recipe;
-                }
+                if (score < minScore) { minScore = score; bestRecipe = recipe; }
             });
-
             displayRecipeCard(bestRecipe);
         });
 
@@ -1278,7 +1258,7 @@
                 <div class="recipe-box">
                     <h3 style="margin-bottom:0.5rem; color:var(--primary-color);">✨ ${recipe.name}</h3>
                     <div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.75rem;">
-                        Nährwerte: <b>${recipe.calories} kcal</b> | Eiweiß: <b>${recipe.protein}g</b> | Kohlenhydrate: <b>${recipe.carbs}g</b> | Fett: <b>${recipe.fat}g</b>
+                        Nährwerte: <b>${recipe.calories} kcal</b> | Eiweiß: <b>${recipe.protein}g</b> | K: <b>${recipe.carbs}g</b> | F: <b>${recipe.fat}g</b>
                     </div>
                     <b>🛒 Einkaufsliste:</b>
                     <ul style="margin:0.25rem 0 0.75rem 1.25rem; font-size:0.85rem; color:var(--text-primary);">
@@ -1289,32 +1269,23 @@
                         ${recipe.prep}
                     </div>
                     <button class="btn" id="btn-add-recipe-log" 
-                        data-name="${recipe.name}" 
-                        data-cals="${recipe.calories}" 
-                        data-p="${recipe.protein}" 
-                        data-c="${recipe.carbs}" 
-                        data-f="${recipe.fat}">
+                        data-name="${recipe.name}" data-cals="${recipe.calories}" 
+                        data-p="${recipe.protein}" data-c="${recipe.carbs}" data-f="${recipe.fat}">
                         Rezept in Tages-Log übernehmen (+${recipe.calories} kcal)
                     </button>
-                </div>
-            `;
+                </div>`;
         }
 
         const saveNutrition = async (mealDetails, calories, protein, carbs, fat) => {
             if (!validateDate()) return;
             try {
                 await addDoc(collection(db, "nutrition"), {
-                    date: dateInput.value,
-                    meal: mealDetails,
-                    calories: calories,
-                    protein: protein,
-                    carbs: carbs,
-                    fat: fat,
-                    timestamp: new Date()
+                    date: dateInput.value, meal: mealDetails,
+                    calories, protein, carbs, fat, timestamp: new Date()
                 });
                 loadDayData();
             } catch (e) { 
-                console.error("Fehler beim Speichern der Ernährung:", e);
+                console.error("Fehler beim Speichern:", e);
                 alert("Speichern fehlgeschlagen: " + e.message);
             }
         };
@@ -1322,13 +1293,7 @@
         document.addEventListener('click', async (e) => {
             if (e.target.id === 'btn-add-recipe-log') {
                 if (!validateDate()) return;
-                const name = e.target.dataset.name;
-                const cals = Number(e.target.dataset.cals);
-                const p = Number(e.target.dataset.p);
-                const c = Number(e.target.dataset.c);
-                const f = Number(e.target.dataset.f);
-
-                await saveNutrition(`Abendessen: ${name}`, cals, p, c, f);
+                await saveNutrition(`Abendessen: ${e.target.dataset.name}`, Number(e.target.dataset.cals), Number(e.target.dataset.p), Number(e.target.dataset.c), Number(e.target.dataset.f));
                 triggerButtonFeedback(e.target);
                 document.getElementById('recipe-container').innerHTML = `<div style="color:var(--success-color); margin-top:0.75rem; font-weight:bold;">✔ Erfolgreich zum Tages-Log hinzugefügt!</div>`;
             }
@@ -1339,92 +1304,55 @@
             if (!validateDate()) return;
             const name = document.getElementById('selected-food-name').value;
             const kcal100g = Number(document.getElementById('selected-food-kcal').value);
-            const protein100g = Number(document.getElementById('selected-food-protein').value);
-            const carbs100g = Number(document.getElementById('selected-food-carbs').value);
-            const fat100g = Number(document.getElementById('selected-food-fat').value);
+            const p100g = Number(document.getElementById('selected-food-protein').value);
+            const c100g = Number(document.getElementById('selected-food-carbs').value);
+            const f100g = Number(document.getElementById('selected-food-fat').value);
             const amount = Number(document.getElementById('food-amount-api').value);
 
-            if (!name || !kcal100g) return alert("Bitte wähle ein Produkt aus der API-Suche aus.");
-            if (!amount || amount <= 0) return alert("Bitte eine gültige Menge eingeben.");
+            if (!name || !kcal100g) return alert("Bitte wähle ein Produkt aus.");
+            if (!amount || amount <= 0) return alert("Bitte gültige Menge eingeben.");
 
             const factor = amount / 100;
-            await saveNutrition(
-                `${name} (${amount}g)`,
-                Math.round(kcal100g * factor),
-                Math.round((protein100g * factor) * 10) / 10,
-                Math.round((carbs100g * factor) * 10) / 10,
-                Math.round((fat100g * factor) * 10) / 10
-            );
+            await saveNutrition(`${name} (${amount}g)`,
+                Math.round(kcal100g * factor), Math.round((p100g * factor) * 10) / 10,
+                Math.round((c100g * factor) * 10) / 10, Math.round((f100g * factor) * 10) / 10);
 
             triggerButtonFeedback(e.currentTarget);
             document.getElementById('food-search').value = '';
-            document.getElementById('selected-food-name').value = '';
-            document.getElementById('selected-food-kcal').value = '';
             document.getElementById('selected-food-display').innerText = "Ausgewählt: Keines";
         });
 
-        // 2. Schnellstart Grundnahrungsmittel Hinzufügen
+        // 2. Schnellstart
         document.getElementById('btn-add-food-staple').addEventListener('click', async (e) => {
             if (!validateDate()) return;
-            const stapleData = document.getElementById('staple-select').value.split('|');
-            const name = stapleData[0];
-            const kcal100g = Number(stapleData[1]);
-            const p100g = Number(stapleData[2]);
-            const c100g = Number(stapleData[3]);
-            const f100g = Number(stapleData[4]);
+            const sd = document.getElementById('staple-select').value.split('|');
             const amount = Number(document.getElementById('food-amount-staple').value);
-
-            if (!amount || amount <= 0) return alert("Bitte eine gültige Menge eingeben.");
+            if (!amount || amount <= 0) return alert("Bitte Menge eingeben.");
 
             const factor = amount / 100;
-            await saveNutrition(
-                `${name} (${amount}g)`,
-                Math.round(kcal100g * factor),
-                Math.round((p100g * factor) * 10) / 10,
-                Math.round((c100g * factor) * 10) / 10,
-                Math.round((f100g * factor) * 10) / 10
-            );
-
+            await saveNutrition(`${sd[0]} (${amount}g)`, Math.round(Number(sd[1]) * factor), 
+                Math.round((Number(sd[2]) * factor) * 10) / 10, Math.round((Number(sd[3]) * factor) * 10) / 10, Math.round((Number(sd[4]) * factor) * 10) / 10);
             triggerButtonFeedback(e.currentTarget);
         });
 
-        // 3. Manuell Hinzufügen
+        // 3. Manuell
         document.getElementById('btn-add-food-manual').addEventListener('click', async (e) => {
             if (!validateDate()) return;
             const name = document.getElementById('manual-name').value.trim();
             const amount = Number(document.getElementById('manual-amount').value);
-            const kcal100g = Number(document.getElementById('manual-kcal').value);
-            const p100g = Number(document.getElementById('manual-protein').value) || 0;
-            const c100g = Number(document.getElementById('manual-carbs').value) || 0;
-            const f100g = Number(document.getElementById('manual-fat').value) || 0;
+            const kcal = Number(document.getElementById('manual-kcal').value);
+            const p = Number(document.getElementById('manual-protein').value) || 0;
+            const c = Number(document.getElementById('manual-carbs').value) || 0;
+            const f = Number(document.getElementById('manual-fat').value) || 0;
 
-            if (!name) return alert("Bitte einen Namen für das Lebensmittel eingeben.");
-            if (!amount || !kcal100g) return alert("Bitte Menge und kcal (pro 100g) eingeben.");
-
+            if (!name || !amount || !kcal) return alert("Bitte Name, Menge und kcal eingeben.");
             const factor = amount / 100;
-            await saveNutrition(
-                `${name} (${amount}g)`,
-                Math.round(kcal100g * factor),
-                Math.round((p100g * factor) * 10) / 10,
-                Math.round((c100g * factor) * 10) / 10,
-                Math.round((f100g * factor) * 10) / 10
-            );
-
+            await saveNutrition(`${name} (${amount}g)`, Math.round(kcal * factor), 
+                Math.round((p * factor) * 10) / 10, Math.round((c * factor) * 10) / 10, Math.round((f * factor) * 10) / 10);
             triggerButtonFeedback(e.currentTarget);
-            document.getElementById('manual-name').value = '';
-            document.getElementById('manual-kcal').value = '';
-            document.getElementById('manual-protein').value = '';
-            document.getElementById('manual-carbs').value = '';
-            document.getElementById('manual-fat').value = '';
         });
 
-        // Datum & Tabs
-        dateInput.addEventListener('change', () => {
-            if (validateDate()) {
-                loadDayData();
-            }
-        });
-
+        dateInput.addEventListener('change', () => { if (validateDate()) loadDayData(); });
         document.getElementById('calc-weight').addEventListener('input', () => loadDayData());
         document.getElementById('calc-height').addEventListener('input', () => loadDayData());
         document.getElementById('calc-age').addEventListener('input', () => loadDayData());
@@ -1441,22 +1369,13 @@
             tab.btn.addEventListener('click', () => {
                 stopScanner();
                 tabs.forEach(t => { t.btn.classList.remove('active'); t.view.classList.remove('active'); });
-                tab.btn.classList.add('active');
-                tab.view.classList.add('active');
+                tab.btn.classList.add('active'); tab.view.classList.add('active');
                 if (tab.btn.id === 'btn-tab-archive') loadArchiveData();
                 if (tab.btn.id === 'btn-tab-progress') loadProgressData();
             });
         });
-        
-        const gymSelect = document.getElementById('strength-gym');
-        const gymCustom = document.getElementById('strength-gym-custom');
-        gymSelect.addEventListener('change', () => {
-            gymCustom.style.display = gymSelect.value === 'custom' ? 'block' : 'none';
-        });
 
-        document.getElementById('archive-gym-filter').addEventListener('change', () => loadArchiveData());
-
-        // --- OpenFoodFacts API Suche (Korrektur für Scope & 503) ---
+        // --- OpenFoodFacts Suche ---
         let searchTimeout;
         const foodSearchInput = document.getElementById('food-search');
         const resultsBox = document.getElementById('search-results-box');
@@ -1464,39 +1383,25 @@
         foodSearchInput.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
             const queryText = e.target.value.trim();
-            if (queryText.length < 2) {
-                resultsBox.style.display = 'none';
-                return;
-            }
+            if (queryText.length < 2) { resultsBox.style.display = 'none'; return; }
 
             searchTimeout = setTimeout(async () => {
                 try {
-                    const apiUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(queryText)}&search_simple=1&action=process&json=1`;
-                    
-                    const res = await fetch(apiUrl, {
-                        headers: { 'Accept': 'application/json' }
-                    });
-
-                    if (!res.ok) throw new Error(`Server-Fehler HTTP ${res.status}`);
+                    const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(queryText)}&search_simple=1&action=process&json=1`, { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
                     const data = await res.json();
                     
                     if (data.products && data.products.length > 0) {
                         resultsBox.innerHTML = data.products.slice(0, 5).map(p => {
                             const name = p.product_name || "Unbekanntes Produkt";
                             const nut = p.nutriments || {};
-                            const kcal = nut['energy-kcal_100g'] || nut['energy-kcal_value'] || nut['energy-kcal'] || 0;
-                            const protein = nut['proteins_100g'] || nut['proteins_value'] || 0;
-                            const carbs = nut['carbohydrates_100g'] || nut['carbohydrates_value'] || 0;
-                            const fat = nut['fat_100g'] || nut['fat_value'] || 0;
+                            const kcal = nut['energy-kcal_100g'] || nut['energy-kcal'] || 0;
+                            const protein = nut['proteins_100g'] || 0;
+                            const carbs = nut['carbohydrates_100g'] || 0;
+                            const fat = nut['fat_100g'] || 0;
 
-                            return `<div class="search-result-item" 
-                                data-name="${name.replace(/"/g, '&quot;')}" 
-                                data-kcal="${kcal}" 
-                                data-protein="${protein}" 
-                                data-carbs="${carbs}" 
-                                data-fat="${fat}">
-                                <b>${name}</b> (${kcal} kcal | E: ${protein}g / 100g)
-                            </div>`;
+                            return `<div class="search-result-item" data-name="${name.replace(/"/g, '&quot;')}" data-kcal="${kcal}" data-protein="${protein}" data-carbs="${carbs}" data-fat="${fat}">
+                                <b>${name}</b> (${kcal} kcal | E: ${protein}g / 100g)</div>`;
                         }).join('');
                         resultsBox.style.display = 'block';
                     } else {
@@ -1504,8 +1409,7 @@
                         resultsBox.style.display = 'block';
                     }
                 } catch(err) { 
-                    console.error("API Fehler:", err); 
-                    resultsBox.innerHTML = `<div class="search-result-item" style="color:var(--danger-color); padding:0.5rem;">⚠️ OpenFoodFacts überlastet (503). Bitte Schnellstart oder Manuell nutzen.</div>`;
+                    resultsBox.innerHTML = `<div class="search-result-item" style="color:var(--danger-color); padding:0.5rem;">⚠️ OpenFoodFacts überlastet (503). Bitte Manuell nutzen.</div>`;
                     resultsBox.style.display = 'block';
                 }
             }, 400);
@@ -1514,110 +1418,61 @@
         resultsBox.addEventListener('click', (e) => {
             const item = e.target.closest('.search-result-item');
             if (!item || !item.dataset.name) return;
-
             document.getElementById('selected-food-name').value = item.dataset.name;
             document.getElementById('selected-food-kcal').value = item.dataset.kcal || 0;
             document.getElementById('selected-food-protein').value = item.dataset.protein || 0;
             document.getElementById('selected-food-carbs').value = item.dataset.carbs || 0;
             document.getElementById('selected-food-fat').value = item.dataset.fat || 0;
-
             document.getElementById('selected-food-display').innerText = `Ausgewählt: ${item.dataset.name} (${item.dataset.kcal} kcal/100g)`;
             foodSearchInput.value = item.dataset.name;
             resultsBox.style.display = 'none';
         });
 
+        // Workout Logik
         document.getElementById('btn-save-cardio').addEventListener('click', async (e) => {
             if (!validateDate()) return;
             const type = document.getElementById('cardio-type').value;
             const distance = document.getElementById('cardio-distance').value;
             const pace = document.getElementById('cardio-pace').value;
             const duration = document.getElementById('cardio-duration').value;
-            const incline = document.getElementById('cardio-incline').value;
-            const level = document.getElementById('cardio-level').value;
             
-            if(!distance && !duration) return alert("Bitte mindestens Distanz oder Dauer eingeben.");
-            
+            if(!distance && !duration) return alert("Bitte Distanz oder Dauer eingeben.");
             try {
                 await addDoc(collection(db, "workouts"), {
-                    date: dateInput.value,
-                    category: "cardio",
-                    type, distance, pace, duration, incline, level,
-                    timestamp: new Date()
+                    date: dateInput.value, category: "cardio", type, distance, pace, duration, timestamp: new Date()
                 });
                 triggerButtonFeedback(e.currentTarget);
-                document.getElementById('cardio-distance').value = '';
-                document.getElementById('cardio-pace').value = '';
-                document.getElementById('cardio-duration').value = '';
-                document.getElementById('cardio-incline').value = '';
-                document.getElementById('cardio-level').value = '';
                 loadDayData();
-            } catch (e) { 
-                console.error("Fehler beim Speichern:", e);
-                alert("Speichern fehlgeschlagen: " + e.message);
-            }
+            } catch (e) { alert("Speichern fehlgeschlagen."); }
         });
 
         let currentSets = [];
-        const exerciseSelect = document.getElementById('strength-exercise');
-        const exerciseCustom = document.getElementById('strength-exercise-custom');
-        
-        exerciseSelect.addEventListener('change', () => {
-            exerciseCustom.style.display = exerciseSelect.value === 'custom' ? 'block' : 'none';
-        });
-
         document.getElementById('btn-add-set').addEventListener('click', () => {
             const reps = document.getElementById('strength-reps').value;
             const weight = document.getElementById('strength-weight').value;
             if(!reps || !weight) return alert("Bitte Wdh. und Gewicht eingeben.");
             currentSets.push({ reps: Number(reps), weight: Number(weight) });
-            renderTempSets();
+            document.getElementById('temp-sets-list').innerHTML = currentSets.map((s, i) => `<li>Satz ${i+1}: <b>${s.reps}x</b> mit <b>${s.weight}kg</b></li>`).join('');
             document.getElementById('strength-reps').value = '';
         });
 
-        function renderTempSets() {
-            const list = document.getElementById('temp-sets-list');
-            list.innerHTML = currentSets.length === 0 ? "" : currentSets.map((s, i) => `<li>Satz ${i+1}: <b>${s.reps}x</b> mit <b>${s.weight}kg</b></li>`).join('');
-        }
-
         document.getElementById('btn-save-strength').addEventListener('click', async (e) => {
             if (!validateDate()) return;
-            let exercise = exerciseSelect.value;
-            if (exercise === 'custom') {
-                exercise = exerciseCustom.value;
-                if (!exercise) return alert("Bitte eine benutzerdefinierte Übung eingeben.");
-            }
+            const exerciseSelect = document.getElementById('strength-exercise');
+            const exercise = exerciseSelect.value === 'custom' ? document.getElementById('strength-exercise-custom').value : exerciseSelect.value;
+            const gymSelect = document.getElementById('strength-gym');
+            const gym = gymSelect.value === 'custom' ? document.getElementById('strength-gym-custom').value : gymSelect.value;
             
-            let gym = gymSelect.value;
-            if (gym === 'custom') {
-                gym = gymCustom.value.trim();
-                if (!gym) return alert("Bitte ein benutzerdefiniertes Fitnessstudio eingeben.");
-            }
-            
-            if (currentSets.length === 0) return alert("Bitte füge über den grauen Button '+ Satz hinzufügen' mindestens einen Satz hinzu.");
-            
+            if (currentSets.length === 0) return alert("Mindestens ein Satz wird benötigt.");
             try {
                 await addDoc(collection(db, "workouts"), {
-                    date: dateInput.value,
-                    category: "strength",
-                    exercise, gym,
-                    sets: currentSets,
-                    timestamp: new Date()
+                    date: dateInput.value, category: "strength", exercise, gym, sets: currentSets, timestamp: new Date()
                 });
-                
                 triggerButtonFeedback(e.currentTarget);
                 currentSets = [];
-                renderTempSets();
-                document.getElementById('strength-reps').value = ''; 
-                if (exerciseSelect.value === 'custom') {
-                    exerciseCustom.value = '';
-                    exerciseCustom.style.display = 'none';
-                    exerciseSelect.selectedIndex = 0;
-                }
+                document.getElementById('temp-sets-list').innerHTML = "";
                 loadDayData();
-            } catch (e) { 
-                console.error("Fehler beim Speichern:", e);
-                alert("Speichern fehlgeschlagen: " + e.message);
-            }
+            } catch (e) { alert("Speichern fehlgeschlagen."); }
         });
 
         async function loadDayData() {
@@ -1625,450 +1480,170 @@
             const workoutList = document.getElementById('workout-list');
             const nutritionList = document.getElementById('nutrition-list');
             const summaryBox = document.getElementById('daily-calories-summary');
-            const dailyWeightInput = document.getElementById('daily-weight-input');
-            const calcWeightInput = document.getElementById('calc-weight');
-            const weightStatusText = document.getElementById('weight-status-text');
             
-            // 1. Gewicht für ausgewählten Tag laden
-            const qWeight = query(collection(db, "weights"), where("date", "==", selectedDate));
-            const weightSnap = await getDocs(qWeight);
+            // Gewicht
+            const weightSnap = await getDocs(query(collection(db, "weights"), where("date", "==", selectedDate)));
             if (!weightSnap.empty) {
                 const wData = weightSnap.docs[0].data();
-                dailyWeightInput.value = wData.weight;
-                calcWeightInput.value = wData.weight;
-                weightStatusText.innerHTML = `✔ Geloggt für ${new Date(selectedDate).toLocaleDateString('de-DE')}: <b>${wData.weight} kg</b>`;
+                document.getElementById('daily-weight-input').value = wData.weight;
+                document.getElementById('calc-weight').value = wData.weight;
+                document.getElementById('weight-status-text').innerHTML = `✔ Geloggt für ${new Date(selectedDate).toLocaleDateString('de-DE')}: <b>${wData.weight} kg</b>`;
             } else {
-                dailyWeightInput.value = '';
-                weightStatusText.innerText = `Für dieses Datum ist noch kein Gewicht geloggt.`;
+                document.getElementById('daily-weight-input').value = '';
+                document.getElementById('weight-status-text').innerText = `Noch kein Gewicht geloggt.`;
             }
 
-            // 2. Workouts laden
-            const qWorkouts = query(collection(db, "workouts"), where("date", "==", selectedDate));
-            const workoutSnap = await getDocs(qWorkouts);
-            let workoutsHtml = '';
-            let hasWorkoutToday = false;
-            let workoutCalsEstimate = 350;
+            // Workouts
+            const workoutSnap = await getDocs(query(collection(db, "workouts"), where("date", "==", selectedDate)));
+            let workoutsHtml = ''; let hasWorkoutToday = false;
 
             workoutSnap.forEach((docSnap) => {
-                const data = docSnap.data();
-                const id = docSnap.id;
-                hasWorkoutToday = true;
-                
+                const data = docSnap.data(); hasWorkoutToday = true;
                 if (data.category === "cardio") {
-                    let details = [];
-                    if (data.distance) details.push(`${data.distance} km`);
-                    if (data.pace) details.push(`Pace: ${data.pace} min/km`);
-                    if (data.duration) details.push(`Dauer: ${data.duration}`);
-                    if (data.incline) details.push(`Neigung: ${data.incline}`);
-                    if (data.level) details.push(`Stufe: ${data.level}`);
-
                     workoutsHtml += `<div class="history-item">
-                        <div class="action-btns"><button class="icon-btn btn-delete" data-id="${id}" data-col="workouts">🗑️</button></div>
+                        <div class="action-btns"><button class="icon-btn btn-delete" data-id="${docSnap.id}" data-col="workouts">🗑️</button></div>
                         <div class="history-item-title">🏃 ${data.type}</div>
-                        <div class="history-item-details">${details.join(' | ')}</div>
+                        <div class="history-item-details">${data.distance?data.distance+'km ':''}${data.duration?data.duration:''}</div>
                     </div>`;
                 } else if (data.category === "strength") {
-                    const gymText = data.gym ? `📍 ${data.gym}<br>` : "";
-                    let setsDisplay = Array.isArray(data.sets) ? data.sets.map(s => `<b>${s.reps}x</b> ${s.weight}kg`).join(' | ') : `${data.sets} Sätze × ${data.reps} Wdh. mit ${data.weight} kg`;
-                    let setsStrForEdit = Array.isArray(data.sets) ? data.sets.map(s => `${s.reps}x${s.weight}`).join(', ') : "";
-
+                    let setsDisplay = Array.isArray(data.sets) ? data.sets.map(s => `<b>${s.reps}x</b> ${s.weight}kg`).join(' | ') : "";
                     workoutsHtml += `<div class="history-item">
-                        <div class="action-btns">
-                            <button class="icon-btn btn-edit" data-id="${id}" data-col="workouts" data-cat="strength" data-setsstr="${setsStrForEdit}">✏️</button>
-                            <button class="icon-btn btn-delete" data-id="${id}" data-col="workouts">🗑️</button>
-                        </div>
+                        <div class="action-btns"><button class="icon-btn btn-delete" data-id="${docSnap.id}" data-col="workouts">🗑️</button></div>
                         <div class="history-item-title">💪 ${data.exercise}</div>
-                        <div class="history-item-details">${gymText}${setsDisplay}</div>
+                        <div class="history-item-details">${data.gym ? `📍 ${data.gym}<br>` : ""}${setsDisplay}</div>
                     </div>`;
                 }
             });
             workoutList.innerHTML = workoutsHtml || '<div class="history-item-details">Kein Training für dieses Datum.</div>';
 
-            // 3. TDEE Bedarfsrechner
-            const weight = Number(calcWeightInput.value) || 93;
+            // TDEE
+            const weight = Number(document.getElementById('calc-weight').value) || 93;
             const height = Number(document.getElementById('calc-height').value) || 190;
             const age = Number(document.getElementById('calc-age').value) || 26;
             const workActivity = document.getElementById('calc-work-activity').value;
 
             const bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
-            let workCals = 350;
-            if (workActivity === 'light') workCals = 200;
-            if (workActivity === 'active') workCals = 650;
-
-            const neat = 400;
-            currentTDEE = Math.round(bmr + neat + workCals + (hasWorkoutToday ? workoutCalsEstimate : 0));
-
-            targetProtein = Math.round(weight * 2.0);
-            targetFat = Math.round(weight * 1.0);
+            let workCals = workActivity === 'light' ? 200 : (workActivity === 'active' ? 650 : 350);
             
-            const caloriesFromProtein = targetProtein * 4;
-            const caloriesFromFat = targetFat * 9;
-            const remainingCalories = currentTDEE - (caloriesFromProtein + caloriesFromFat);
-            targetCarbs = Math.max(0, Math.round(remainingCalories / 4));
+            currentTDEE = Math.round(bmr + 400 + workCals + (hasWorkoutToday ? 350 : 0));
+            targetProtein = Math.round(weight * 2.0); targetFat = Math.round(weight * 1.0);
+            targetCarbs = Math.max(0, Math.round((currentTDEE - (targetProtein * 4 + targetFat * 9)) / 4));
 
             document.getElementById('tdee-result').innerHTML = `
-                Grundumsatz (BMR): <b>${Math.round(bmr)} kcal</b><br>
-                Beruf & Alltag: <b>+${neat + workCals} kcal</b> (${workActivity === 'moderate' ? '70% Büro / 30% Handwerk' : workActivity})<br>
-                Gym / Training: <b>${hasWorkoutToday ? `+${workoutCalsEstimate} kcal (aus Archiv erkannt ✔)` : '0 kcal (heute kein Training im Archiv)'}</b><br>
-                <hr style="border:0; border-top:1px solid var(--border-color); margin:0.5rem 0;">
-                <b>Täglicher Zielbedarf (TDEE): ${currentTDEE} kcal</b><br>
+                Täglicher Zielbedarf (TDEE): <b>${currentTDEE} kcal</b><br>
                 Ziele: Eiweiß: <b>${targetProtein}g</b> | Fett: <b>${targetFat}g</b> | Kohlenhydrate: <b>${targetCarbs}g</b>
             `;
 
-            // 4. Ernährung laden
-            const qNutrition = query(collection(db, "nutrition"), where("date", "==", selectedDate));
-            const nutritionSnap = await getDocs(qNutrition);
-            let nutritionHtml = '';
-            let totalCals = 0;
-            let totalProtein = 0;
-            let totalCarbs = 0;
-            let totalFat = 0;
+            // Ernährung
+            const nutritionSnap = await getDocs(query(collection(db, "nutrition"), where("date", "==", selectedDate)));
+            let nutritionHtml = ''; let tCals = 0, tP = 0, tC = 0, tF = 0;
             
             nutritionSnap.forEach((docSnap) => {
                 const data = docSnap.data();
-                const id = docSnap.id;
-                const cals = data.calories || 0;
-                const p = data.protein || 0;
-                const c = data.carbs || 0;
-                const f = data.fat || 0;
-
-                totalCals += cals;
-                totalProtein += p;
-                totalCarbs += c;
-                totalFat += f;
-
+                tCals += data.calories||0; tP += data.protein||0; tC += data.carbs||0; tF += data.fat||0;
                 nutritionHtml += `<div class="history-item">
-                    <div class="action-btns">
-                        <button class="icon-btn btn-edit" data-id="${id}" data-col="nutrition" data-meal="${data.meal}">✏️</button>
-                        <button class="icon-btn btn-delete" data-id="${id}" data-col="nutrition">🗑️</button>
-                    </div>
+                    <div class="action-btns"><button class="icon-btn btn-delete" data-id="${docSnap.id}" data-col="nutrition">🗑️</button></div>
                     <div class="history-item-title">🍽️ ${data.meal}</div>
-                    <div class="history-item-details">🔥 ${cals} kcal | E: ${p}g | K: ${c}g | F: ${f}g</div>
+                    <div class="history-item-details">🔥 ${data.calories} kcal | E: ${data.protein}g | K: ${data.carbs}g | F: ${data.fat}g</div>
                 </div>`;
             });
             nutritionList.innerHTML = nutritionHtml || '<div class="history-item-details">Keine Mahlzeiten für dieses Datum.</div>';
 
-            currentDayStats.cals = totalCals;
-            currentDayStats.protein = totalProtein;
+            currentDayStats = { cals: tCals, protein: tP };
+            const diff = tCals - currentTDEE;
+            const diffText = diff < 0 ? `🟢 Defizit: <b>${Math.abs(diff)} kcal</b>` : `🔴 Überschuss: <b>${diff} kcal</b>`;
 
-            const diff = totalCals - currentTDEE;
-            let diffText = "";
-            let colorStyle = "";
-
-            if (diff === 0) {
-                diffText = "Genau im Bedarf (Erhaltung)";
-                colorStyle = "color: var(--text-primary);";
-            } else if (diff < 0) {
-                diffText = `🟢 Defizit: <b>${Math.abs(diff)} kcal</b> unter Bedarf`;
-                colorStyle = "color: var(--success-color);";
-            } else {
-                diffText = `🔴 Überschuss: <b>${diff} kcal</b> über Bedarf`;
-                colorStyle = "color: var(--danger-color);";
-            }
-
-            const pRounded = Math.round(totalProtein * 10) / 10;
-            const cRounded = Math.round(totalCarbs * 10) / 10;
-            const fRounded = Math.round(totalFat * 10) / 10;
-
-            summaryBox.innerHTML = `Aufgenommen: <b>${totalCals} kcal</b> | Zielbedarf: <b>${currentTDEE} kcal</b><br>` +
-                                   `<span style="${colorStyle}">${diffText}</span><br>` +
-                                   `<hr style="border:0; border-top:1px solid var(--border-color); margin:0.5rem 0;">` +
-                                   `<b>Makros (Ist / Soll):</b><br>` +
-                                   `Eiweiß: <b>${pRounded}g / ${targetProtein}g</b> | Kohlenhydrate: <b>${cRounded}g / ${targetCarbs}g</b> | Fett: <b>${fRounded}g / ${targetFat}g</b>`;
+            summaryBox.innerHTML = `Aufgenommen: <b>${tCals} kcal</b> | Zielbedarf: <b>${currentTDEE} kcal</b><br>` +
+                                   `${diffText}<br><hr style="border-top:1px solid var(--border-color); margin:0.5rem 0;">` +
+                                   `Eiweiß: <b>${Math.round(tP)}g / ${targetProtein}g</b> | Kohlenhydrate: <b>${Math.round(tC)}g / ${targetCarbs}g</b> | Fett: <b>${Math.round(tF)}g / ${targetFat}g</b>`;
         }
 
-        // --- Logik für den "Fortschritt"-Reiter (Sub-Tabs & Chart.js) ---
+        // --- Auswertung & Charts (Kraftwerte & Gewicht) ---
         const btnSubStrength = document.getElementById('btn-progress-sub-strength');
         const btnSubWeight = document.getElementById('btn-progress-sub-weight');
         const subViewStrength = document.getElementById('progress-subview-strength');
         const subViewWeight = document.getElementById('progress-subview-weight');
 
         btnSubStrength.addEventListener('click', () => {
-            btnSubStrength.classList.add('active');
-            btnSubWeight.classList.remove('active');
-            subViewStrength.style.display = 'block';
-            subViewWeight.style.display = 'none';
+            btnSubStrength.classList.add('active'); btnSubWeight.classList.remove('active');
+            subViewStrength.style.display = 'block'; subViewWeight.style.display = 'none';
             loadProgressData();
         });
 
         btnSubWeight.addEventListener('click', () => {
-            btnSubWeight.classList.add('active');
-            btnSubStrength.classList.remove('active');
-            subViewWeight.style.display = 'block';
-            subViewStrength.style.display = 'none';
+            btnSubWeight.classList.add('active'); btnSubStrength.classList.remove('active');
+            subViewWeight.style.display = 'block'; subViewStrength.style.display = 'none';
             loadWeightProgressData();
         });
 
         async function loadProgressData() {
-            const q = query(collection(db, "workouts"), where("category", "==", "strength"));
-            const snap = await getDocs(q);
+            const snap = await getDocs(query(collection(db, "workouts"), where("category", "==", "strength")));
             cachedProgressWorkouts = [];
-
-            snap.forEach(d => {
-                cachedProgressWorkouts.push({ id: d.id, ...d.data() });
-            });
-
-            cachedProgressWorkouts.sort((a, b) => {
-                const timeA = a.timestamp?.seconds ? a.timestamp.seconds * 1000 : new Date(a.date).getTime();
-                const timeB = b.timestamp?.seconds ? b.timestamp.seconds * 1000 : new Date(b.date).getTime();
-                return timeA - timeB;
-            });
-
-            populateProgressGymFilter();
-        }
-
-        function populateProgressGymFilter() {
-            const gymSelect = document.getElementById('progress-gym-select');
-            const currentGym = gymSelect.value;
+            snap.forEach(d => cachedProgressWorkouts.push({ id: d.id, ...d.data() }));
+            cachedProgressWorkouts.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            
             const gyms = [...new Set(cachedProgressWorkouts.map(w => w.gym).filter(Boolean))];
-
-            gymSelect.innerHTML = gyms.length === 0 
-                ? '<option value="">Keine Daten vorhanden</option>' 
-                : gyms.map(g => `<option value="${g}">${g}</option>`).join('');
-
-            if (currentGym && gyms.includes(currentGym)) {
-                gymSelect.value = currentGym;
-            }
-
+            document.getElementById('progress-gym-select').innerHTML = gyms.map(g => `<option value="${g}">${g}</option>`).join('');
             populateProgressExerciseFilter();
         }
 
         function populateProgressExerciseFilter() {
-            const gymSelect = document.getElementById('progress-gym-select');
-            const exerciseSelect = document.getElementById('progress-exercise-select');
-            const selectedGym = gymSelect.value;
-            const currentEx = exerciseSelect.value;
-
-            const filteredWorkouts = cachedProgressWorkouts.filter(w => w.gym === selectedGym);
-            const exercises = [...new Set(filteredWorkouts.map(w => w.exercise).filter(Boolean))];
-
-            exerciseSelect.innerHTML = exercises.length === 0 
-                ? '<option value="">Keine Übungen vorhanden</option>' 
-                : exercises.map(e => `<option value="${e}">${e}</option>`).join('');
-
-            if (currentEx && exercises.includes(currentEx)) {
-                exerciseSelect.value = currentEx;
-            }
-
+            const selectedGym = document.getElementById('progress-gym-select').value;
+            const exercises = [...new Set(cachedProgressWorkouts.filter(w => w.gym === selectedGym).map(w => w.exercise).filter(Boolean))];
+            document.getElementById('progress-exercise-select').innerHTML = exercises.map(e => `<option value="${e}">${e}</option>`).join('');
             renderProgressChart();
         }
 
         function renderProgressChart() {
-            const selectedGym = document.getElementById('progress-gym-select').value;
-            const selectedExercise = document.getElementById('progress-exercise-select').value;
-            const selectedMetric = document.getElementById('progress-metric-select').value;
-            const infoText = document.getElementById('progress-info-text');
-
-            if (!selectedGym || !selectedExercise) {
-                if (progressChart) progressChart.destroy();
-                infoText.innerText = "Bitte wähle Studio und Übung aus.";
-                return;
-            }
-
-            const filtered = cachedProgressWorkouts.filter(w => w.gym === selectedGym && w.exercise === selectedExercise);
-
-            if (filtered.length === 0) {
-                if (progressChart) progressChart.destroy();
-                infoText.innerText = "Keine Daten für diese Kombination vorhanden.";
-                return;
-            }
-
-            const labels = [];
-            const dataValues = [];
+            const g = document.getElementById('progress-gym-select').value;
+            const e = document.getElementById('progress-exercise-select').value;
+            const metric = document.getElementById('progress-metric-select').value;
+            
+            const filtered = cachedProgressWorkouts.filter(w => w.gym === g && w.exercise === e);
+            const labels = []; const dataValues = [];
 
             filtered.forEach(w => {
-                const dateObj = new Date(w.date);
-                const dateFormatted = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                labels.push(dateFormatted);
-
+                labels.push(new Date(w.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }));
                 let val = 0;
-                if (Array.isArray(w.sets) && w.sets.length > 0) {
-                    if (selectedMetric === 'maxWeight') {
-                        val = Math.max(...w.sets.map(s => Number(s.weight) || 0));
-                    } else {
-                        val = w.sets.reduce((acc, s) => acc + ((Number(s.reps) || 0) * (Number(s.weight) || 0)), 0);
-                    }
-                } else if (w.weight) {
-                    if (selectedMetric === 'maxWeight') {
-                        val = Number(w.weight) || 0;
-                    } else {
-                        val = (Number(w.reps) || 1) * (Number(w.sets) || 1) * (Number(w.weight) || 0);
-                    }
+                if (Array.isArray(w.sets)) {
+                    val = metric === 'maxWeight' ? Math.max(...w.sets.map(s => Number(s.weight))) : w.sets.reduce((acc, s) => acc + (s.reps * s.weight), 0);
                 }
                 dataValues.push(val);
             });
 
-            const unit = selectedMetric === 'maxWeight' ? 'kg' : 'kg Vol.';
-            infoText.innerText = `${filtered.length} Einheiten in ${selectedGym} ausgewertet.`;
-
+            if (progressChart) progressChart.destroy();
             const ctx = document.getElementById('progress-chart').getContext('2d');
-            
-            if (progressChart) {
-                progressChart.destroy();
-            }
-
-            const metricLabel = selectedMetric === 'maxWeight' ? 'Maximalgewicht (kg)' : 'Gesamtvolumen (kg × Wdh)';
-
             progressChart = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: metricLabel,
-                        data: dataValues,
-                        borderColor: '#03dac6',
-                        backgroundColor: 'rgba(3, 218, 198, 0.15)',
-                        borderWidth: 3,
-                        pointBackgroundColor: '#03dac6',
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        fill: true,
-                        tension: 0.25
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: '#e0e0e0',
-                                font: { family: '-apple-system, sans-serif', size: 12, weight: 'bold' }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return ` ${context.dataset.label}: ${context.parsed.y} ${unit}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: { color: '#a0a0a0' },
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
-                        },
-                        y: {
-                            ticks: { color: '#a0a0a0' },
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            beginAtZero: false
-                        }
-                    }
-                }
+                data: { labels, datasets: [{ label: metric, data: dataValues, borderColor: '#03dac6', backgroundColor: 'rgba(3,218,198,0.1)', fill: true }] },
+                options: { responsive: true, maintainAspectRatio: false }
             });
         }
 
-        // --- Körpergewicht-Fortschritt & 7-Tage-Schnitt Kurve ---
         async function loadWeightProgressData() {
-            const q = query(collection(db, "weights"));
-            const snap = await getDocs(q);
+            const snap = await getDocs(query(collection(db, "weights")));
             cachedWeights = [];
-
-            snap.forEach(d => {
-                cachedWeights.push({ id: d.id, ...d.data() });
-            });
-
-            // Chronologisch nach Datum sortieren
+            snap.forEach(d => cachedWeights.push({ id: d.id, ...d.data() }));
             cachedWeights.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-            renderWeightChart();
-        }
-
-        function renderWeightChart() {
-            const infoText = document.getElementById('weight-info-text');
-
-            if (cachedWeights.length === 0) {
-                if (weightChart) weightChart.destroy();
-                infoText.innerText = "Noch keine Gewichtseinträge vorhanden.";
-                return;
-            }
-
-            const labels = [];
-            const dailyData = [];
-            const movingAvgData = [];
-
+            
+            const labels = []; const dailyData = []; const movingAvgData = [];
             cachedWeights.forEach((w, idx) => {
-                const dateObj = new Date(w.date);
-                const dateFormatted = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                labels.push(dateFormatted);
+                labels.push(new Date(w.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }));
                 dailyData.push(w.weight);
-
-                // Gleitenden 7-Tage-Durchschnitt berechnen
-                const startIdx = Math.max(0, idx - 6);
-                const windowValues = dailyData.slice(startIdx, idx + 1);
-                const sum = windowValues.reduce((acc, val) => acc + val, 0);
-                const avg = Math.round((sum / windowValues.length) * 100) / 100;
-                movingAvgData.push(avg);
+                const windowVals = dailyData.slice(Math.max(0, idx - 6), idx + 1);
+                movingAvgData.push(Math.round((windowVals.reduce((a, b) => a + b, 0) / windowVals.length) * 100) / 100);
             });
 
-            const currentWeight = dailyData[dailyData.length - 1];
-            const current7DayAvg = movingAvgData[movingAvgData.length - 1];
-            infoText.innerHTML = `Einträge: <b>${cachedWeights.length}</b> | Letztes Gewicht: <b>${currentWeight} kg</b> | 7-Tage-Schnitt: <b>${current7DayAvg} kg</b>`;
-
-            const ctx = document.getElementById('weight-chart').getContext('2d');
-            if (weightChart) {
-                weightChart.destroy();
-            }
-
-            weightChart = new Chart(ctx, {
+            if (weightChart) weightChart.destroy();
+            weightChart = new Chart(document.getElementById('weight-chart').getContext('2d'), {
                 type: 'line',
                 data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Tägliches Gewicht (kg)',
-                            data: dailyData,
-                            borderColor: 'rgba(255, 152, 0, 0.6)',
-                            backgroundColor: 'rgba(255, 152, 0, 0.1)',
-                            borderWidth: 1.5,
-                            pointRadius: 4,
-                            pointBackgroundColor: '#ff9800',
-                            tension: 0
-                        },
-                        {
-                            label: '7-Tage-Schnitt (kg)',
-                            data: movingAvgData,
-                            borderColor: '#03dac6',
-                            backgroundColor: 'rgba(3, 218, 198, 0.2)',
-                            borderWidth: 3.5,
-                            pointRadius: 0,
-                            pointHoverRadius: 6,
-                            fill: false,
-                            tension: 0.35
-                        }
+                    labels, datasets: [
+                        { label: 'Tägliches Gewicht', data: dailyData, borderColor: '#ff9800', borderWidth: 1.5 },
+                        { label: '7-Tage-Schnitt', data: movingAvgData, borderColor: '#03dac6', borderWidth: 3.5, tension: 0.3 }
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: '#e0e0e0',
-                                font: { family: '-apple-system, sans-serif', size: 11, weight: 'bold' }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return ` ${context.dataset.label}: ${context.parsed.y} kg`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: { color: '#a0a0a0' },
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
-                        },
-                        y: {
-                            ticks: { color: '#a0a0a0' },
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            beginAtZero: false
-                        }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false }
             });
         }
 
@@ -2076,220 +1651,32 @@
         document.getElementById('progress-exercise-select').addEventListener('change', renderProgressChart);
         document.getElementById('progress-metric-select').addEventListener('change', renderProgressChart);
 
-        // --- Archiv Laden inklusive Körpergewicht ---
+        // --- Archiv ---
         async function loadArchiveData() {
             const archiveList = document.getElementById('archive-list');
-            const selectedGymFilter = document.getElementById('archive-gym-filter').value;
-            archiveList.innerHTML = "Lade Daten...";
-
-            const qWorkouts = query(collection(db, "workouts"));
-            const qNutrition = query(collection(db, "nutrition"));
-            const qWeights = query(collection(db, "weights"));
+            const [wSnap, nSnap, weightSnap] = await Promise.all([getDocs(query(collection(db, "workouts"))), getDocs(query(collection(db, "nutrition"))), getDocs(query(collection(db, "weights")))]);
             
-            const [wSnap, nSnap, weightSnap] = await Promise.all([getDocs(qWorkouts), getDocs(qNutrition), getDocs(qWeights)]);
             const grouped = {};
+            wSnap.forEach(d => { const data = d.data(); if (!grouped[data.date]) grouped[data.date] = { w: [], n: [], wt: null }; grouped[data.date].w.push({ id: d.id, ...data }); });
+            nSnap.forEach(d => { const data = d.data(); if (!grouped[data.date]) grouped[data.date] = { w: [], n: [], wt: null }; grouped[data.date].n.push({ id: d.id, ...data }); });
+            weightSnap.forEach(d => { const data = d.data(); if (!grouped[data.date]) grouped[data.date] = { w: [], n: [], wt: null }; grouped[data.date].wt = { id: d.id, ...data }; });
 
-            wSnap.forEach(docSnap => {
-                const data = docSnap.data();
-                if (selectedGymFilter !== "ALL" && data.gym !== selectedGymFilter) return;
-                if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], weight: null, gym: "" };
-                grouped[data.date].workouts.push({ id: docSnap.id, ...data });
-                if (data.gym) grouped[data.date].gym = data.gym;
-            });
-
-            nSnap.forEach(docSnap => {
-                const data = docSnap.data();
-                if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], weight: null, gym: "" };
-                grouped[data.date].nutrition.push({ id: docSnap.id, ...data });
-            });
-
-            weightSnap.forEach(docSnap => {
-                const data = docSnap.data();
-                if (!grouped[data.date]) grouped[data.date] = { workouts: [], nutrition: [], weight: null, gym: "" };
-                grouped[data.date].weight = { id: docSnap.id, ...data };
-            });
-
-            const allWorkoutsList = [];
-            wSnap.forEach(docSnap => allWorkoutsList.push(docSnap.data()));
-            allWorkoutsList.sort((a, b) => {
-                const timeA = a.timestamp?.seconds || new Date(a.date).getTime();
-                const timeB = b.timestamp?.seconds || new Date(b.date).getTime();
-                return timeA - timeB;
-            });
-
-            function getPreviousPerformance(currentExercise, currentDate, currentGym) {
-                let prevMatch = null;
-                for (let w of allWorkoutsList) {
-                    const wTime = w.timestamp?.seconds || new Date(w.date).getTime();
-                    const curTime = new Date(currentDate).getTime();
-                    if (w.category === "strength" && w.exercise === currentExercise && w.gym === currentGym && wTime < curTime) {
-                        prevMatch = w;
-                    }
-                }
-                return prevMatch;
-            }
-
-            const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
-            let html = "";
-
-            sortedDates.forEach(date => {
-                const dayData = grouped[date];
-                if (selectedGymFilter !== "ALL" && dayData.workouts.length === 0) return;
-
-                const gymTitle = dayData.gym ? ` - ${dayData.gym}` : "";
-                const dateObj = new Date(date);
-                const dateString = dateObj.toLocaleDateString('de-DE');
-
-                html += `<details>
-                    <summary>📅 ${dateString}${gymTitle}</summary>
-                    <div class="details-content">`;
-
-                if (dayData.weight) {
-                    html += `<div class="history-item" style="padding:0.5rem 2.5rem 0.5rem 0.75rem; margin-bottom:0.4rem; border-left-color: var(--warning-color);">
-                        <div class="action-btns" style="top:0.4rem; right:0.5rem;">
-                            <button class="icon-btn btn-delete" data-id="${dayData.weight.id}" data-col="weights">🗑️</button>
-                        </div>
-                        <div class="history-item-details">⚖️ <b>Körpergewicht:</b> ${dayData.weight.weight} kg</div>
-                    </div>`;
-                }
-                
-                if (dayData.workouts.length > 0) {
-                    html += `<b>Workouts:</b>`;
-                    dayData.workouts.forEach(data => {
-                        if (data.category === "cardio") {
-                            let details = [];
-                            if (data.distance) details.push(`${data.distance}km`);
-                            if (data.pace) details.push(`${data.pace} min/km`);
-                            if (data.duration) details.push(data.duration);
-
-                            html += `<div class="history-item" style="padding:0.5rem 2.5rem 0.5rem 0.75rem; margin-bottom:0.4rem;">
-                                <div class="action-btns" style="top:0.4rem; right:0.5rem;">
-                                    <button class="icon-btn btn-delete" data-id="${data.id}" data-col="workouts">🗑️</button>
-                                </div>
-                                <div class="history-item-details">🏃 <b>${data.type}:</b> ${details.join(' | ')}</div>
-                            </div>`;
-                        } else if (data.category === "strength") {
-                            let setsText = "";
-                            let comparisonIcon = "";
-
-                            if (Array.isArray(data.sets)) {
-                                setsText = data.sets.map(s => `${s.reps}x${s.weight}kg`).join(' | ');
-                                
-                                const prev = getPreviousPerformance(data.exercise, date, data.gym);
-                                if (prev && Array.isArray(prev.sets) && prev.sets.length === data.sets.length) {
-                                    let improved = false;
-                                    let worsened = false;
-                                    
-                                    for (let i = 0; i < data.sets.length; i++) {
-                                        const curS = data.sets[i];
-                                        const prevS = prev.sets[i];
-                                        if (curS.weight > prevS.weight || (curS.weight === prevS.weight && curS.reps > prevS.reps)) {
-                                            improved = true;
-                                        } else if (curS.weight < prevS.weight || (curS.weight === prevS.weight && curS.reps < prevS.reps)) {
-                                            worsened = true;
-                                        }
-                                    }
-
-                                    if (improved && !worsened) {
-                                        comparisonIcon = ` <span style="color:var(--success-color); font-weight:bold;" title="Verbessert zum letzten Mal">▲</span>`;
-                                    } else if (worsened && !improved) {
-                                        comparisonIcon = ` <span style="color:var(--danger-color); font-weight:bold;" title="Leistungsabfall zum letzten Mal">▼</span>`;
-                                    }
-                                }
-                            } else {
-                                setsText = `${data.sets} Sätze x ${data.reps} Wdh @ ${data.weight}kg`;
-                            }
-
-                            html += `<div class="history-item" style="padding:0.5rem 2.5rem 0.5rem 0.75rem; margin-bottom:0.4rem;">
-                                <div class="action-btns" style="top:0.4rem; right:0.5rem;">
-                                    <button class="icon-btn btn-delete" data-id="${data.id}" data-col="workouts">🗑️</button>
-                                </div>
-                                <div class="history-item-details">💪 <b>${data.exercise}:</b> ${setsText}${comparisonIcon}</div>
-                            </div>`;
-                        }
-                    });
-                }
-
-                if (dayData.nutrition.length > 0) {
-                    html += `<br><b>Ernährung:</b>`;
-                    let dayCals = 0;
-                    let dayP = 0;
-                    let dayC = 0;
-                    let dayF = 0;
-
-                    dayData.nutrition.forEach(data => {
-                        dayCals += (data.calories || 0);
-                        dayP += (data.protein || 0);
-                        dayC += (data.carbs || 0);
-                        dayF += (data.fat || 0);
-
-                        html += `<div class="history-item" style="padding:0.5rem 2.5rem 0.5rem 0.75rem; margin-bottom:0.4rem;">
-                            <div class="action-btns" style="top:0.4rem; right:0.5rem;">
-                                <button class="icon-btn btn-delete" data-id="${data.id}" data-col="nutrition">🗑️</button>
-                            </div>
-                            <div class="history-item-details">🍽️ ${data.meal} (${data.calories || 0} kcal | E:${data.protein || 0}g)</div>
-                        </div>`;
-                    });
-
-                    const diff = dayCals - currentTDEE;
-                    let diffBadge = diff <= 0 ? `<span style="color:var(--success-color);">Defizit (${Math.abs(diff)} kcal)</span>` : `<span style="color:var(--danger-color);">Überschuss (+${diff} kcal)</span>`;
-
-                    html += `<div class="history-item-details" style="margin-top:0.25rem; border-top: 1px solid var(--border-color); padding-top:0.25rem;">
-                        Gesamt: <b>${dayCals} kcal</b> | ${diffBadge}<br>
-                        Makros: E: <b>${Math.round(dayP*10)/10}g</b> | K: <b>${Math.round(dayC*10)/10}g</b> | F: <b>${Math.round(dayF*10)/10}g</b>
-                    </div>`;
-                }
-
-                html += `</div></details>`;
-            });
-
-            archiveList.innerHTML = html || "Keine Historie für diesen Filter vorhanden.";
+            archiveList.innerHTML = Object.keys(grouped).sort((a,b)=>b.localeCompare(a)).map(date => {
+                const day = grouped[date];
+                let h = `<details><summary>📅 ${new Date(date).toLocaleDateString('de-DE')}</summary><div class="details-content">`;
+                if(day.wt) h += `<div class="history-item">⚖️ ${day.wt.weight} kg <button class="icon-btn btn-delete" style="float:right;" data-id="${day.wt.id}" data-col="weights">🗑️</button></div>`;
+                day.w.forEach(w => h += `<div class="history-item">💪 ${w.category === 'strength' ? w.exercise : w.type} <button class="icon-btn btn-delete" style="float:right;" data-id="${w.id}" data-col="workouts">🗑️</button></div>`);
+                day.n.forEach(n => h += `<div class="history-item">🍽️ ${n.meal} <button class="icon-btn btn-delete" style="float:right;" data-id="${n.id}" data-col="nutrition">🗑️</button></div>`);
+                return h + `</div></details>`;
+            }).join('') || "Kein Archiv gefunden.";
         }
 
         document.addEventListener('click', async (e) => {
             if (e.target.classList.contains('btn-delete')) {
-                const id = e.target.dataset.id;
-                const col = e.target.dataset.col;
-                if (confirm("Eintrag wirklich löschen?")) {
-                    await deleteDoc(doc(db, col, id));
-                    loadDayData(); 
-                    if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
-                    if (document.getElementById('view-progress').classList.contains('active')) {
-                        if (btnSubStrength.classList.contains('active')) loadProgressData();
-                        else loadWeightProgressData();
-                    }
-                }
-            }
-
-            if (e.target.classList.contains('btn-edit')) {
-                const id = e.target.dataset.id;
-                const col = e.target.dataset.col;
-                const docRef = doc(db, col, id);
-
-                if (col === "nutrition") {
-                    const oldMeal = e.target.dataset.meal;
-                    const newMeal = prompt("Mahlzeit bearbeiten:", oldMeal);
-                    if (newMeal !== null && newMeal !== "") {
-                        await updateDoc(docRef, { meal: newMeal });
-                        loadDayData();
-                    }
-                } else if (col === "workouts") {
-                    const currentSetsStr = e.target.dataset.setsstr;
-                    const newSetsStr = prompt("Sätze bearbeiten (Format: WdhxGewicht, z.B. 12x50, 9x55):", currentSetsStr);
-                    if (newSetsStr) {
-                        try {
-                            const newSetsArr = newSetsStr.split(',').map(s => {
-                                const parts = s.trim().split('x');
-                                return { reps: Number(parts[0]), weight: Number(parts[1] || 0) };
-                            });
-                            await updateDoc(docRef, { sets: newSetsArr });
-                            loadDayData();
-                            if (document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
-                            if (document.getElementById('view-progress').classList.contains('active')) loadProgressData();
-                        } catch(err) {
-                            alert("Fehler beim Format. Bitte so eingeben: 12x50, 9x55");
-                        }
-                    }
+                if (confirm("Wirklich löschen?")) {
+                    await deleteDoc(doc(db, e.target.dataset.col, e.target.dataset.id));
+                    loadDayData();
+                    if(document.getElementById('view-archive').classList.contains('active')) loadArchiveData();
                 }
             }
         });
