@@ -1,12 +1,12 @@
-const CACHE_NAME = 'fitness-app-v1';
+const CACHE_NAME = 'fitness-app-v2';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
+    './icon.svg',
     'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 
-// Install: Ressourcen cachen
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
@@ -15,12 +15,9 @@ self.addEventListener('install', event => {
     );
 });
 
-// Fetch: Bei fehlendem Netz aus dem Cache laden
 self.addEventListener('fetch', event => {
-    // Firebase API Calls vom Caching ausschließen (das macht Firestore selbst)
-    if (event.request.url.includes('firestore.googleapis.com')) {
-        return;
-    }
+    // Firebase API von Offline-Caching ausnehmen (macht Firestore selbst!)
+    if (event.request.url.includes('firestore.googleapis.com')) return;
     
     event.respondWith(
         caches.match(event.request).then(response => {
