@@ -9,6 +9,8 @@
     <meta name="theme-color" content="#121212">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icon.svg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <title>Fitness & Ernährungs-Tracker</title>
     <!-- Chart.js CDN für visuelle Auswertung -->
@@ -394,7 +396,7 @@
 </head>
 <body>
     <div class="app-container">
-        <div class="version-badge">Version 7.0 - PWA, Offline Modus & App-Icon</div>
+        <div class="version-badge">Version 7.1 - Archiv-Fix & Studio-Anzeige</div>
 
         <!-- Globales Datum -->
         <div class="global-date-container">
@@ -861,7 +863,6 @@
     <!-- Firebase SDK, Offline Modus & Logik -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-        // enableIndexedDbPersistence für den Offline-Modus importiert
         import { getFirestore, collection, addDoc, getDocs, query, where, deleteDoc, updateDoc, doc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -876,21 +877,12 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // --- PWA: Offline Database Persistenz aktivieren ---
-        enableIndexedDbPersistence(db).catch((err) => {
-            if (err.code == 'failed-precondition') {
-                console.warn('Offline-Persistenz: App ist in mehreren Tabs geöffnet.');
-            } else if (err.code == 'unimplemented') {
-                console.warn('Browser unterstützt keine lokale Persistenz.');
-            }
-        });
+        // --- PWA: Offline Database Persistenz & Wake Lock ---
+        enableIndexedDbPersistence(db).catch(() => {});
 
-        // --- PWA: Service Worker für Homescreen-Installation ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('Service Worker erfolgreich registriert.', reg.scope))
-                    .catch(err => console.error('Service Worker Fehler:', err));
+                navigator.serviceWorker.register('./sw.js').catch(() => {});
             });
         }
 
@@ -920,7 +912,7 @@
             return true;
         }
 
-        // --- Gewichts-Log (Körpergewicht heute) ---
+        // --- Gewichts-Log ---
         document.getElementById('btn-save-weight').addEventListener('click', async (e) => {
             if (!validateDate()) return;
             const weightVal = Number(document.getElementById('daily-weight-input').value);
@@ -931,7 +923,6 @@
             try {
                 const qWeight = query(collection(db, "weights"), where("date", "==", dateInput.value));
                 const snap = await getDocs(qWeight);
-                
                 snap.forEach(async (docSnap) => {
                     await deleteDoc(doc(db, "weights", docSnap.id));
                 });
@@ -945,33 +936,20 @@
                 triggerButtonFeedback(e.currentTarget);
                 loadDayData();
             } catch (err) {
-                console.error("Fehler beim Speichern des Gewichts:", err);
                 alert("Speichern fehlgeschlagen: " + err.message);
             }
         });
 
-        // --- Standard-Schnell-Logs & LocalStorage Logik ---
+        // --- Standard-Schnell-Logs & LocalStorage ---
         const DEFAULT_QUICK_LOGS = {
-            breakfast: {
-                name: "Frühstück: 2 Eier, Pumpernickel, 25g körniger Frischkäse",
-                cals: 375,
-                p: 23,
-                c: 27,
-                f: 17
-            },
-            lunch: {
-                name: "Mittagessen: Quarkcreme, Müsli, Nüsse",
-                cals: 550,
-                p: 45,
-                c: 50,
-                f: 18
-            }
+            breakfast: { name: "Frühstück: 2 Eier, Pumpernickel, 25g körniger Frischkäse", cals: 375, p: 23, c: 27, f: 17 },
+            lunch: { name: "Mittagessen: Quarkcreme, Müsli, Nüsse", cals: 550, p: 45, c: 50, f: 18 }
         };
 
         function getQuickLogConfig(type) {
             const saved = localStorage.getItem(`ql_preset_${type}`);
             if (saved) {
-                try { return JSON.parse(saved); } catch (e) { console.error("Fehler beim Laden:", e); }
+                try { return JSON.parse(saved); } catch (e) {}
             }
             return DEFAULT_QUICK_LOGS[type];
         }
@@ -1004,8 +982,7 @@
                 updateQuickLogUI(type);
 
                 document.getElementById(`btn-edit-quick-${type}`).addEventListener('click', () => {
-                    const panel = document.getElementById(`panel-quick-${type}`);
-                    panel.classList.toggle('active');
+                    document.getElementById(`panel-quick-${type}`).classList.toggle('active');
                 });
 
                 document.getElementById(`btn-quick-${type}`).addEventListener('click', async (e) => {
@@ -1047,6 +1024,7 @@
 
         function triggerButtonFeedback(btn) {
             if (!btn) return;
+            if (navigator.vibrate) navigator.vibrate(50);
             const originalText = btn.innerText;
             btn.innerText = "✅ Gespeichert!";
             btn.style.backgroundColor = "var(--success-color)";
@@ -1083,7 +1061,7 @@
             });
         });
 
-        // --- Kamera Barcode Scanner Logik ---
+        // --- Kamera Barcode Scanner ---
         let scannerStream = null;
         let scannerInterval = null;
         const videoElement = document.getElementById('scanner-video');
@@ -1093,7 +1071,7 @@
 
         document.getElementById('btn-start-scanner').addEventListener('click', async () => {
             if (!('BarcodeDetector' in window)) {
-                alert("Dein Browser unterstützt den Scanner nicht direkt.");
+                alert("Dein Browser unterstützt den Scanner nicht.");
                 return;
             }
             try {
@@ -1110,15 +1088,13 @@
                         try {
                             const barcodes = await barcodeDetector.detect(videoElement);
                             if (barcodes.length > 0) {
-                                const code = barcodes[0].rawValue;
                                 stopScanner();
-                                fetchProductByBarcode(code);
+                                fetchProductByBarcode(barcodes[0].rawValue);
                             }
-                        } catch (err) { console.error("Scanner Fehler:", err); }
+                        } catch (err) {}
                     }
                 }, 300);
             } catch (err) {
-                console.error("Kamera Zugriff verweigert:", err);
                 alert("Kamera-Zugriff fehlgeschlagen.");
             }
         });
@@ -1161,10 +1137,9 @@
                     scannedInfo.innerHTML = `✔ <b>${name}</b> gefunden!<br>Nährwerte pro 100g: ${kcal} kcal | E: ${protein}g | K: ${carbs}g | F: ${fat}g`;
                     barcodeAmountGroup.style.display = 'flex';
                 } else {
-                    scannedInfo.innerText = `Produkt mit Barcode ${barcode} nicht in OpenFoodFacts gefunden.`;
+                    scannedInfo.innerText = `Produkt mit Barcode ${barcode} nicht gefunden.`;
                 }
             } catch (err) {
-                console.error("API Fehler:", err);
                 scannedInfo.innerText = "Fehler beim Abrufen der Produktdaten.";
             }
         }
@@ -1178,7 +1153,7 @@
             const fat100g = Number(document.getElementById('scanned-food-fat').value);
             const amount = Number(document.getElementById('food-amount-barcode').value);
 
-            if (!name || !kcal100g) return alert("Kein gültiges Produkt ausgewählt.");
+            if (!name || !kcal100g) return alert("Kein gültiges Produkt.");
             if (!amount || amount <= 0) return alert("Bitte gültige Menge eingeben.");
 
             const factor = amount / 100;
@@ -1191,7 +1166,7 @@
             barcodeAmountGroup.style.display = 'none';
         });
 
-        // Abendessen Modi
+        // --- Abendessen Modi ---
         const dinnerAutoBtn = document.getElementById('btn-dinner-auto');
         const dinnerManualBtn = document.getElementById('btn-dinner-manual');
         const dinnerModeAuto = document.getElementById('dinner-mode-auto');
@@ -1285,7 +1260,6 @@
                 });
                 loadDayData();
             } catch (e) { 
-                console.error("Fehler beim Speichern:", e);
                 alert("Speichern fehlgeschlagen: " + e.message);
             }
         };
@@ -1295,7 +1269,7 @@
                 if (!validateDate()) return;
                 await saveNutrition(`Abendessen: ${e.target.dataset.name}`, Number(e.target.dataset.cals), Number(e.target.dataset.p), Number(e.target.dataset.c), Number(e.target.dataset.f));
                 triggerButtonFeedback(e.target);
-                document.getElementById('recipe-container').innerHTML = `<div style="color:var(--success-color); margin-top:0.75rem; font-weight:bold;">✔ Erfolgreich zum Tages-Log hinzugefügt!</div>`;
+                document.getElementById('recipe-container').innerHTML = `<div style="color:var(--success-color); margin-top:0.75rem; font-weight:bold;">✔ Erfolgreich hinzugefügt!</div>`;
             }
         });
 
@@ -1370,10 +1344,20 @@
                 stopScanner();
                 tabs.forEach(t => { t.btn.classList.remove('active'); t.view.classList.remove('active'); });
                 tab.btn.classList.add('active'); tab.view.classList.add('active');
+                
+                localStorage.setItem('lastActiveTab', tab.btn.id);
+
                 if (tab.btn.id === 'btn-tab-archive') loadArchiveData();
                 if (tab.btn.id === 'btn-tab-progress') loadProgressData();
             });
         });
+
+        // Tab State Memory Wiederherstellung
+        const lastTabId = localStorage.getItem('lastActiveTab');
+        if (lastTabId) {
+            const tabToClick = tabs.find(t => t.btn.id === lastTabId);
+            if (tabToClick) tabToClick.btn.click();
+        }
 
         // --- OpenFoodFacts Suche ---
         let searchTimeout;
@@ -1558,7 +1542,7 @@
                                    `Eiweiß: <b>${Math.round(tP)}g / ${targetProtein}g</b> | Kohlenhydrate: <b>${Math.round(tC)}g / ${targetCarbs}g</b> | Fett: <b>${Math.round(tF)}g / ${targetFat}g</b>`;
         }
 
-        // --- Auswertung & Charts (Kraftwerte & Gewicht) ---
+        // --- Auswertung & Charts ---
         const btnSubStrength = document.getElementById('btn-progress-sub-strength');
         const btnSubWeight = document.getElementById('btn-progress-sub-weight');
         const subViewStrength = document.getElementById('progress-subview-strength');
@@ -1651,25 +1635,85 @@
         document.getElementById('progress-exercise-select').addEventListener('change', renderProgressChart);
         document.getElementById('progress-metric-select').addEventListener('change', renderProgressChart);
 
-        // --- Archiv ---
+        // --- Archiv mit Studio-Filter und Studio-Anzeige ---
         async function loadArchiveData() {
             const archiveList = document.getElementById('archive-list');
-            const [wSnap, nSnap, weightSnap] = await Promise.all([getDocs(query(collection(db, "workouts"))), getDocs(query(collection(db, "nutrition"))), getDocs(query(collection(db, "weights")))]);
+            const selectedGymFilter = document.getElementById('archive-gym-filter').value;
+            
+            const [wSnap, nSnap, weightSnap] = await Promise.all([
+                getDocs(query(collection(db, "workouts"))), 
+                getDocs(query(collection(db, "nutrition"))), 
+                getDocs(query(collection(db, "weights")))
+            ]);
             
             const grouped = {};
-            wSnap.forEach(d => { const data = d.data(); if (!grouped[data.date]) grouped[data.date] = { w: [], n: [], wt: null }; grouped[data.date].w.push({ id: d.id, ...data }); });
-            nSnap.forEach(d => { const data = d.data(); if (!grouped[data.date]) grouped[data.date] = { w: [], n: [], wt: null }; grouped[data.date].n.push({ id: d.id, ...data }); });
-            weightSnap.forEach(d => { const data = d.data(); if (!grouped[data.date]) grouped[data.date] = { w: [], n: [], wt: null }; grouped[data.date].wt = { id: d.id, ...data }; });
+            wSnap.forEach(d => { 
+                const data = d.data(); 
+                if (!grouped[data.date]) grouped[data.date] = { w: [], n: [], wt: null, gyms: new Set() }; 
+                grouped[data.date].w.push({ id: d.id, ...data }); 
+                if (data.gym) grouped[data.date].gyms.add(data.gym);
+            });
+            nSnap.forEach(d => { 
+                const data = d.data(); 
+                if (!grouped[data.date]) grouped[data.date] = { w: [], n: [], wt: null, gyms: new Set() }; 
+                grouped[data.date].n.push({ id: d.id, ...data }); 
+            });
+            weightSnap.forEach(d => { 
+                const data = d.data(); 
+                if (!grouped[data.date]) grouped[data.date] = { w: [], n: [], wt: null, gyms: new Set() }; 
+                grouped[data.date].wt = { id: d.id, ...data }; 
+            });
 
-            archiveList.innerHTML = Object.keys(grouped).sort((a,b)=>b.localeCompare(a)).map(date => {
+            const sortedDates = Object.keys(grouped).sort((a,b)=>b.localeCompare(a));
+            let html = "";
+
+            sortedDates.forEach(date => {
                 const day = grouped[date];
-                let h = `<details><summary>📅 ${new Date(date).toLocaleDateString('de-DE')}</summary><div class="details-content">`;
-                if(day.wt) h += `<div class="history-item">⚖️ ${day.wt.weight} kg <button class="icon-btn btn-delete" style="float:right;" data-id="${day.wt.id}" data-col="weights">🗑️</button></div>`;
-                day.w.forEach(w => h += `<div class="history-item">💪 ${w.category === 'strength' ? w.exercise : w.type} <button class="icon-btn btn-delete" style="float:right;" data-id="${w.id}" data-col="workouts">🗑️</button></div>`);
-                day.n.forEach(n => h += `<div class="history-item">🍽️ ${n.meal} <button class="icon-btn btn-delete" style="float:right;" data-id="${n.id}" data-col="nutrition">🗑️</button></div>`);
-                return h + `</div></details>`;
-            }).join('') || "Kein Archiv gefunden.";
+                
+                // Studio-Filter Logik prüfen
+                if (selectedGymFilter !== "ALL") {
+                    const hasGymMatch = day.w.some(w => w.gym === selectedGymFilter);
+                    if (!hasGymMatch) return; // Tag überspringen, wenn das Studio nicht übereinstimmt
+                }
+
+                const gymsArray = Array.from(day.gyms);
+                const gymTitle = gymsArray.length > 0 ? ` - ${gymsArray.join(', ')}` : "";
+                const dateString = new Date(date).toLocaleDateString('de-DE');
+
+                html += `<details><summary>📅 ${dateString}${gymTitle}</summary><div class="details-content">`;
+                
+                if (day.wt) {
+                    html += `<div class="history-item">⚖️ <b>Körpergewicht:</b> ${day.wt.weight} kg <button class="icon-btn btn-delete" style="float:right;" data-id="${day.wt.id}" data-col="weights">🗑️</button></div>`;
+                }
+                
+                if (day.w.length > 0) {
+                    html += `<b>Workouts:</b>`;
+                    day.w.forEach(w => {
+                        let details = w.category === 'strength' && Array.isArray(w.sets) ? w.sets.map(s => `${s.reps}x${s.weight}kg`).join(' | ') : (w.distance ? `${w.distance}km` : '');
+                        html += `<div class="history-item" style="padding:0.5rem 2.5rem 0.5rem 0.75rem; margin-bottom:0.4rem;">
+                            <div class="action-btns" style="top:0.4rem; right:0.5rem;"><button class="icon-btn btn-delete" data-id="${w.id}" data-col="workouts">🗑️</button></div>
+                            <div class="history-item-details">💪 <b>${w.category === 'strength' ? w.exercise : w.type}:</b> ${details} ${w.gym ? `<br>📍 ${w.gym}` : ''}</div>
+                        </div>`;
+                    });
+                }
+
+                if (day.n.length > 0) {
+                    html += `<br><b>Ernährung:</b>`;
+                    day.n.forEach(n => {
+                        html += `<div class="history-item" style="padding:0.5rem 2.5rem 0.5rem 0.75rem; margin-bottom:0.4rem;">
+                            <div class="action-btns" style="top:0.4rem; right:0.5rem;"><button class="icon-btn btn-delete" data-id="${n.id}" data-col="nutrition">🗑️</button></div>
+                            <div class="history-item-details">🍽️ ${n.meal} (${n.calories || 0} kcal)</div>
+                        </div>`;
+                    });
+                }
+
+                html += `</div></details>`;
+            });
+
+            archiveList.innerHTML = html || "Kein Archiv für diesen Filter vorhanden.";
         }
+
+        document.getElementById('archive-gym-filter').addEventListener('change', loadArchiveData);
 
         document.addEventListener('click', async (e) => {
             if (e.target.classList.contains('btn-delete')) {
